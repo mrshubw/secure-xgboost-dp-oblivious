@@ -229,11 +229,13 @@ class QuantileHistMaker: public TreeUpdater {
                           const GHistIndexMatrix& gmat,
                           const GHistIndexBlockMatrix& gmatb,
                           GHistRowT hist) {
+      // builder_monitor_.Start(__func__);
       if (param_.enable_feature_grouping > 0) {
         hist_builder_.BuildBlockHist(gpair, row_indices, gmatb, hist);
       } else {
         hist_builder_.BuildHist(gpair, row_indices, gmat, hist, data_layout_ != kSparseData);
       }
+      // builder_monitor_.Stop(__func__);
     }
 
     inline void SubtractionTrick(GHistRowT self,

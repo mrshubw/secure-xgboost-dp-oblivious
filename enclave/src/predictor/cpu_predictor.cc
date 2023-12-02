@@ -20,6 +20,7 @@
 #include "../data/adapter.h"
 #include "../common/math.h"
 #include "../gbm/gbtree_model.h"
+#include "../common/timer.h"
 
 #ifdef __ENCLAVE_OBLIVIOUS__
 #include "../common/quantile.h"
@@ -34,14 +35,23 @@ bst_float PredValue(const SparsePage::Inst &inst,
                     const std::vector<std::unique_ptr<RegTree>> &trees,
                     const std::vector<int> &tree_info, int bst_group,
                     RegTree::FVec *p_feats, unsigned tree_begin,
-                    unsigned tree_end) {
+                    unsigned tree_end,
+                    common::Monitor* monitor_ = nullptr) {
+  if(monitor_!=nullptr)
+    monitor_->Start(__func__);
   bst_float psum = 0.0f;
   p_feats->Fill(inst);
   for (size_t i = tree_begin; i < tree_end; ++i) {
     if (tree_info[i] == bst_group) {
 #ifdef __ENCLAVE_OBLIVIOUS__
       if (common::ObliviousEnabled()) {
+        if(monitor_!=nullptr)
+          monitor_->Start("OGetLeafValue");
         auto leaf_value = trees[i]->OGetLeafValue(*p_feats);
+        // int tid = trees[i]->GetLeafIndex(*p_feats);
+        // auto leaf_value = (*trees[i])[tid].LeafValue();
+        if(monitor_!=nullptr)
+          monitor_->Stop("OGetLeafValue");
         if (common::ObliviousDebugCheckEnabled()) {
           int tid = trees[i]->GetLeafIndex(*p_feats);
           auto leaf_value2 = (*trees[i])[tid].LeafValue();
@@ -59,6 +69,9 @@ bst_float PredValue(const SparsePage::Inst &inst,
     }
   }
   p_feats->Drop(inst);
+  
+  if(monitor_!=nullptr)
+    monitor_->Stop(__func__);
   return psum;
 }
 
@@ -125,7 +138,10 @@ template <typename DataView>
 void PredictBatchKernel(DataView batch, std::vector<bst_float> *out_preds,
                         gbm::GBTreeModel const &model, int32_t tree_begin,
                         int32_t tree_end,
-                        std::vector<RegTree::FVec> *p_thread_temp) {
+                        std::vector<RegTree::FVec> *p_thread_temp,
+                        common::Monitor* monitor_ = nullptr) {
+  if(monitor_!=nullptr)
+    monitor_->Start(__func__);
   auto& thread_temp = *p_thread_temp;
   int32_t const num_group = model.learner_model_param->num_output_group;
 
@@ -153,7 +169,7 @@ void PredictBatchKernel(DataView batch, std::vector<bst_float> *out_preds,
         for (int gid = 0; gid < num_group; ++gid) {
           const size_t offset = ridx[k] * num_group + gid;
           preds[offset] += PredValue(inst[k], model.trees, model.tree_info, gid,
-                                     &feats, tree_begin, tree_end);
+                                     &feats, tree_begin, tree_end, monitor_);
         }
       }
     }
@@ -165,9 +181,11 @@ void PredictBatchKernel(DataView batch, std::vector<bst_float> *out_preds,
     for (int gid = 0; gid < num_group; ++gid) {
       const size_t offset = ridx * num_group + gid;
       preds[offset] += PredValue(inst, model.trees, model.tree_info, gid,
-                                 &feats, tree_begin, tree_end);
+                                 &feats, tree_begin, tree_end, monitor_);
     }
   }
+  if(monitor_!=nullptr)
+    monitor_->Stop(__func__);
 }
 
 class CPUPredictor : public Predictor {
@@ -186,6 +204,7 @@ class CPUPredictor : public Predictor {
   void PredictDMatrix(DMatrix *p_fmat, std::vector<bst_float> *out_preds,
                       gbm::GBTreeModel const &model, int32_t tree_begin,
                       int32_t tree_end) {
+    monitor_.Start(__func__);
     std::lock_guard<std::mutex> guard(lock_);
     const int threads = omp_get_max_threads();
     InitThreadTemp(threads, model.learner_model_param->num_feature, &this->thread_temp_);
@@ -194,8 +213,9 @@ class CPUPredictor : public Predictor {
                p_fmat->Info().num_row_ * model.learner_model_param->num_output_group);
       size_t constexpr kUnroll = 8;
       PredictBatchKernel(SparsePageView<kUnroll>{&batch}, out_preds, model, tree_begin,
-                         tree_end, &thread_temp_);
+                         tree_end, &thread_temp_, &monitor_);
     }
+    monitor_.Stop(__func__);
   }
 
   void InitOutPredictions(const MetaInfo& info,
@@ -238,6 +258,8 @@ class CPUPredictor : public Predictor {
   void PredictBatch(DMatrix* dmat, PredictionCacheEntry* predts,
                     const gbm::GBTreeModel& model, int tree_begin,
                     uint32_t const ntree_limit = 0) override {
+    monitor_.Init("CPUPredictor");
+    monitor_.Start(__func__);
     // tree_begin is not used, right now we just enforce it to be 0.
     CHECK_EQ(tree_begin, 0);
     auto* out_preds = &predts->predictions;
@@ -270,6 +292,7 @@ class CPUPredictor : public Predictor {
     uint32_t const beg_version = predts->version;
     CHECK_LE(beg_version, end_version);
 
+    // be called when booster.predict in python
     if (beg_version < end_version) {
       this->PredictDMatrix(dmat, &out_preds->HostVector(), model,
                            beg_version * output_groups,
@@ -283,6 +306,9 @@ class CPUPredictor : public Predictor {
 
     CHECK(out_preds->Size() == output_groups * dmat->Info().num_row_ ||
           out_preds->Size() == dmat->Info().num_row_);
+    
+    monitor_.Stop(__func__);
+    monitor_.Print();
   }
 
   template <typename Adapter>
@@ -496,6 +522,7 @@ class CPUPredictor : public Predictor {
  private:
   std::mutex lock_;
   std::vector<RegTree::FVec> thread_temp_;
+  common::Monitor monitor_;
 };
 
 XGBOOST_REGISTER_PREDICTOR(CPUPredictor, "cpu_predictor")

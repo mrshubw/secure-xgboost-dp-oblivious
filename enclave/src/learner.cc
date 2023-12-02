@@ -1040,22 +1040,31 @@ class LearnerImpl : public LearnerIO {
                bool training,
                bool pred_leaf, bool pred_contribs, bool approx_contribs,
                bool pred_interactions) override {
+    monitor_.Start(__func__);
     int multiple_predictions = static_cast<int>(pred_leaf) +
                                static_cast<int>(pred_interactions) +
                                static_cast<int>(pred_contribs);
     this->Configure();
     CHECK_LE(multiple_predictions, 1) << "Perform one kind of prediction at a time.";
     if (pred_contribs) {
+      monitor_.Start("PredictContribution");
       gbm_->PredictContribution(data.get(), &out_preds->HostVector(), ntree_limit, approx_contribs);
+      monitor_.Stop("PredictContribution");
     } else if (pred_interactions) {
+      monitor_.Start("PredictInteractionContributions");
       gbm_->PredictInteractionContributions(data.get(), &out_preds->HostVector(), ntree_limit,
                                             approx_contribs);
+      monitor_.Stop("PredictInteractionContributions");
     } else if (pred_leaf) {
+      monitor_.Start("PredictLeaf");
       gbm_->PredictLeaf(data.get(), &out_preds->HostVector(), ntree_limit);
+      monitor_.Stop("PredictLeaf");
     } else {
       auto local_cache = this->GetPredictionCache();
       auto& prediction = local_cache->Cache(data, generic_parameters_.gpu_id);
+      monitor_.Start("PredictElse");
       this->PredictRaw(data.get(), &prediction, training, ntree_limit);
+      monitor_.Stop("PredictElse");
       // Copy the prediction cache to output prediction. out_preds comes from C API
       out_preds->SetDevice(generic_parameters_.gpu_id);
       out_preds->Resize(prediction.predictions.Size());
@@ -1064,6 +1073,9 @@ class LearnerImpl : public LearnerIO {
         obj_->PredTransform(out_preds);
       }
     }
+
+    monitor_.Stop(__func__);
+    monitor_.Print();
   }
 
   XGBAPIThreadLocalEntry& GetThreadLocal() const override {

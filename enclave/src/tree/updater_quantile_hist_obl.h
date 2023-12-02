@@ -83,7 +83,7 @@ using xgboost::common::Column;
 /*! \brief construct a tree using quantized feature values */
 class QuantileHistMaker: public TreeUpdater {
  public:
-  QuantileHistMaker() {}
+  QuantileHistMaker() {maker_monitor_.Init("QuantileHistMaker");}
 
   void Configure(const Args& args) override;
 
@@ -353,6 +353,8 @@ class QuantileHistMaker: public TreeUpdater {
   std::unique_ptr<TreeUpdater> pruner_;
   std::unique_ptr<SplitEvaluator> spliteval_;
   FeatureInteractionConstraintHost int_constraint_;
+
+  common::Monitor maker_monitor_;
 };
 
 }  // namespace tree
