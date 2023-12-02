@@ -84,6 +84,7 @@ void QuantileHistMaker::CallBuilderUpdate(const std::unique_ptr<Builder<Gradient
 void QuantileHistMaker::Update(HostDeviceVector<GradientPair> *gpair,
                                DMatrix *dmat,
                                const std::vector<RegTree *> &trees) {
+  updater_monitor_.Start(__func__);
   if (dmat != p_last_dmat_ || is_gmat_initialized_ == false) {
     updater_monitor_.Start("GmatInitialization");
     gmat_.Init(dmat, static_cast<uint32_t>(param_.max_bin));
@@ -116,6 +117,9 @@ void QuantileHistMaker::Update(HostDeviceVector<GradientPair> *gpair,
   param_.learning_rate = lr;
 
   p_last_dmat_ = dmat;
+
+  updater_monitor_.Stop(__func__);
+  updater_monitor_.Print();
 }
 
 bool QuantileHistMaker::UpdatePredictionCache(
@@ -477,6 +481,7 @@ void QuantileHistMaker::Builder<GradientSumT>::ExpandWithDepthWise(
   DMatrix *p_fmat,
   RegTree *p_tree,
   const std::vector<GradientPair> &gpair_h) {
+  builder_monitor_.Start(__func__);
   unsigned timestamp = 0;
   int num_leaves = 0;
 
@@ -509,6 +514,8 @@ void QuantileHistMaker::Builder<GradientSumT>::ExpandWithDepthWise(
       temp_qexpand_depth.clear();
     }
   }
+
+  builder_monitor_.Stop(__func__);
 }
 template<typename GradientSumT>
 void QuantileHistMaker::Builder<GradientSumT>::ExpandWithLossGuide(
@@ -616,6 +623,7 @@ void QuantileHistMaker::Builder<GradientSumT>::Update(const GHistIndexMatrix& gm
   pruner_->Update(gpair, p_fmat, std::vector<RegTree*>{p_tree});
 
   builder_monitor_.Stop("Update");
+  builder_monitor_.Print();
 }
 template<typename GradientSumT>
 bool QuantileHistMaker::Builder<GradientSumT>::UpdatePredictionCache(

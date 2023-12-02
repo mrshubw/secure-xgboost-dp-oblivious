@@ -76,6 +76,8 @@ tags
 *.class
 target
 *.swp
+# vscode
+.vscode
 
 # cpp tests and gcov generated files
 *.gcov

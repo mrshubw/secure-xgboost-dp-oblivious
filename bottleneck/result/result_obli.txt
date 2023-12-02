@@ -1,0 +1,1477 @@
+train:6513
+test:1611
+tree_method:hist
+max_depth:3
+num_rounds:5
+
+[16999733] ======== Monitor: Quantile::Builder ========
+[16999733] ApplySplit: 0.002s, 35 calls @ 2000us
+
+[16999733] BuildLocalHistogramsLevelWise: 9.173s, 20 calls @ 9173000us
+
+[16999733] BuildLocalHistogramsLevelWise1: 9.171s, 20 calls @ 9171000us
+
+[16999733] BuildLocalHistogramsLevelWise2: 0.133s, 130260 calls @ 133000us
+
+[16999733] BuildLocalHistogramsLevelWise3: 0.149s, 130260 calls @ 149000us
+
+[16999733] BuildLocalHistogramsLevelWise4: 7.979s, 130260 calls @ 7979000us
+
+[16999733] BuildLocalHistogramsLevelWise5: 0.107s, 130260 calls @ 107000us
+
+[16999733] BuildNodeStats: 0s, 20 calls @ 0us
+
+[16999733] EvaluateSplit: 0.001s, 75 calls @ 1000us
+
+[16999733] ExpandWithDepthWidth: 9.184s, 5 calls @ 9184000us
+
+[16999733] InitData: 0s, 5 calls @ 0us
+
+[16999733] InitNewNode: 0s, 75 calls @ 0us
+
+[16999733] ObliviousArrayAccess: 2.087s, 2865720 calls @ 2087000us
+
+[16999733] ObliviousArrayAccessBytes: 0.123s, 130260 calls @ 123000us
+
+[16999733] ObliviousArrayAssign: 1.949s, 2865720 calls @ 1949000us
+
+[16999733] ObliviousArrayAssignBytes: 0.126s, 130260 calls @ 126000us
+
+[16999733] ObliviousChoose: 0.09s, 130260 calls @ 90000us
+
+[16999733] SubtractionTrick: 0s, 35 calls @ 0us
+
+[16999733] SyncHistograms: 0s, 20 calls @ 0us
+
+[16999733] Update: 9.184s, 5 calls @ 9184000us
+
+[16999733] ======== Monitor: QuantileHistMaker ========
+[16999733] Update: 9.19s, 5 calls @ 9190000us
+
+[16999733] ======== Monitor: GBTree ========
+[16999733] BoostNewTrees: 9.191s, 5 calls @ 9191000us
+
+[16999733] CommitModel: 0s, 5 calls @ 0us
+
+[16999733] Configure: 0s, 1 calls @ 0us
+
+[16999733] ConfigureUpdaters: 0s, 6 calls @ 0us
+
+[16999733] ConfigureWithKnownData: 0s, 5 calls @ 0us
+
+[16999733] DoBoost: 9.191s, 5 calls @ 9191000us
+
+[16999733] InitUpdater: 0s, 1 calls @ 0us
+
+[16999733] PerformTreeMethodHeuristic: 0s, 5 calls @ 0us
+
+[16999733] PredictBatch: 0s, 5 calls @ 0us
+
+[16999733] update: 9.19s, 5 calls @ 9190000us
+
+xgb.train cost 9.333925247192383 s
+
+booster.predict cost 0.011529922485351562 s
+
+[17000336] ======== Monitor: Quantile::Builder ========
+[17000336] ApplySplit: 0.001s, 35 calls @ 1000us
+
+[17000336] BuildLocalHistogramsLevelWise: 8.575s, 20 calls @ 8575000us
+
+[17000336] BuildNodeStats: 0s, 20 calls @ 0us
+
+[17000336] EvaluateSplit: 0s, 75 calls @ 0us
+
+[17000336] ExpandWithDepthWidth: 8.585s, 5 calls @ 8585000us
+
+[17000336] ForLoop1: 8.574s, 20 calls @ 8574000us
+
+[17000336] ForLoop2: 7.824s, 130260 calls @ 7824000us
+
+[17000336] InitData: 0s, 5 calls @ 0us
+
+[17000336] InitNewNode: 0s, 75 calls @ 0us
+
+[17000336] ObliviousArrayAccess: 2.124s, 2865720 calls @ 2124000us
+
+[17000336] ObliviousArrayAccessBytes: 0.109s, 130260 calls @ 109000us
+
+[17000336] ObliviousArrayAssign: 2.035s, 2865720 calls @ 2035000us
+
+[17000336] ObliviousArrayAssignBytes: 0.11s, 130260 calls @ 110000us
+
+[17000336] ObliviousChoose: 0.072s, 130260 calls @ 72000us
+
+[17000336] SubtractionTrick: 0s, 35 calls @ 0us
+
+[17000336] SyncHistograms: 0s, 20 calls @ 0us
+
+[17000336] Update: 8.586s, 5 calls @ 8586000us
+
+[17000336] ======== Monitor: QuantileHistMaker ========
+[17000336] Update: 8.592s, 5 calls @ 8592000us
+
+[17000336] ======== Monitor: GBTree ========
+[17000336] BoostNewTrees: 8.592s, 5 calls @ 8592000us
+
+[17000336] CommitModel: 0s, 5 calls @ 0us
+
+[17000336] Configure: 0s, 1 calls @ 0us
+
+[17000336] ConfigureUpdaters: 0s, 6 calls @ 0us
+
+[17000336] ConfigureWithKnownData: 0s, 5 calls @ 0us
+
+[17000336] DoBoost: 8.592s, 5 calls @ 8592000us
+
+[17000336] InitUpdater: 0s, 1 calls @ 0us
+
+[17000336] PerformTreeMethodHeuristic: 0s, 5 calls @ 0us
+
+[17000336] PredictBatch: 0s, 5 calls @ 0us
+
+[17000336] update: 8.592s, 5 calls @ 8592000us
+
+xgb.train cost 8.735352516174316 s
+
+booster.predict cost 0.011597156524658203 s
+
+去掉ObliviousArrayAccess的计时操作
+
+[17002048] ======== Monitor: Quantile::Builder ========
+[17002048] ApplySplit: 0s, 35 calls @ 0us
+
+[17002048] BuildLocalHistogramsLevelWise: 4.98s, 20 calls @ 4980000us
+
+[17002048] BuildNodeStats: 0s, 20 calls @ 0us
+
+[17002048] EvaluateSplit: 0s, 75 calls @ 0us
+
+[17002048] ExpandWithDepthWidth: 4.985s, 5 calls @ 4985000us
+
+[17002048] ForLoop1: 4.979s, 20 calls @ 4979000us
+
+[17002048] ForLoop2: 4.222s, 130260 calls @ 4222000us
+
+[17002048] InitData: 0s, 5 calls @ 0us
+
+[17002048] InitNewNode: 0s, 75 calls @ 0us
+
+[17002048] ObliviousArrayAccessBytes: 0.113s, 130260 calls @ 113000us
+
+[17002048] ObliviousArrayAssign: 2.068s, 2865720 calls @ 2068000us
+
+[17002048] ObliviousArrayAssignBytes: 0.132s, 130260 calls @ 132000us
+
+[17002048] ObliviousChoose: 0.086s, 130260 calls @ 86000us
+
+[17002048] SubtractionTrick: 0s, 35 calls @ 0us
+
+[17002048] SyncHistograms: 0s, 20 calls @ 0us
+
+[17002048] Update: 4.985s, 5 calls @ 4985000us
+
+[17002048] ======== Monitor: QuantileHistMaker ========
+[17002048] Update: 4.992s, 5 calls @ 4992000us
+
+[17002048] ======== Monitor: GBTree ========
+[17002048] BoostNewTrees: 4.992s, 5 calls @ 4992000us
+
+[17002048] CommitModel: 0s, 5 calls @ 0us
+
+[17002048] Configure: 0.001s, 1 calls @ 1000us
+
+[17002048] ConfigureUpdaters: 0s, 6 calls @ 0us
+
+[17002048] ConfigureWithKnownData: 0s, 5 calls @ 0us
+
+[17002048] DoBoost: 4.992s, 5 calls @ 4992000us
+
+[17002048] InitUpdater: 0.001s, 1 calls @ 1000us
+
+[17002048] PerformTreeMethodHeuristic: 0s, 5 calls @ 0us
+
+[17002048] PredictBatch: 0s, 5 calls @ 0us
+
+[17002048] update: 4.992s, 5 calls @ 4992000us
+
+xgb.train cost 5.136506080627441 s
+
+booster.predict cost 0.010539054870605469 s
+
+去掉ObliviousArrayAssign的计时操作
+
+[17002054] ======== Monitor: Quantile::Builder ========
+[17002054] ApplySplit: 0.001s, 35 calls @ 1000us
+
+[17002054] BuildLocalHistogramsLevelWise: 1.193s, 20 calls @ 1193000us
+
+[17002054] BuildNodeStats: 0s, 20 calls @ 0us
+
+[17002054] EvaluateSplit: 0.001s, 75 calls @ 1000us
+
+[17002054] ExpandWithDepthWidth: 1.198s, 5 calls @ 1198000us
+
+[17002054] ForLoop1: 1.19s, 20 calls @ 1190000us
+
+[17002054] ForLoop2: 0.425s, 130260 calls @ 425000us
+
+[17002054] InitData: 0.001s, 5 calls @ 1000us
+
+[17002054] InitNewNode: 0s, 75 calls @ 0us
+
+[17002054] ObliviousArrayAccessBytes: 0.103s, 130260 calls @ 103000us
+
+[17002054] ObliviousArrayAssignBytes: 0.124s, 130260 calls @ 124000us
+
+[17002054] ObliviousChoose: 0.074s, 130260 calls @ 74000us
+
+[17002054] SubtractionTrick: 0s, 35 calls @ 0us
+
+[17002054] SyncHistograms: 0s, 20 calls @ 0us
+
+[17002054] Update: 1.2s, 5 calls @ 1200000us
+
+[17002054] ======== Monitor: QuantileHistMaker ========
+[17002054] Update: 1.205s, 5 calls @ 1205000us
+
+[17002054] ======== Monitor: GBTree ========
+[17002054] BoostNewTrees: 1.205s, 5 calls @ 1205000us
+
+[17002054] CommitModel: 0s, 5 calls @ 0us
+
+[17002054] Configure: 0s, 1 calls @ 0us
+
+[17002054] ConfigureUpdaters: 0s, 6 calls @ 0us
+
+[17002054] ConfigureWithKnownData: 0s, 5 calls @ 0us
+
+[17002054] DoBoost: 1.205s, 5 calls @ 1205000us
+
+[17002054] InitUpdater: 0s, 1 calls @ 0us
+
+[17002054] PerformTreeMethodHeuristic: 0s, 5 calls @ 0us
+
+[17002054] PredictBatch: 0s, 5 calls @ 0us
+
+[17002054] update: 1.205s, 5 calls @ 1205000us
+
+xgb.train cost 1.3449981212615967 s
+
+booster.predict cost 0.010956525802612305 s
+
+去掉ObliviousChoose、ObliviousArrayAccessBytes、ObliviousArrayAssignBytes的计时操作
+
+[17002064] ======== Monitor: Quantile::Builder ========
+[17002064] ApplySplit: 0s, 35 calls @ 0us
+
+[17002064] BuildLocalHistogramsLevelWise: 0.662s, 20 calls @ 662000us
+
+[17002064] BuildNodeStats: 0s, 20 calls @ 0us
+
+[17002064] EvaluateSplit: 0s, 75 calls @ 0us
+
+[17002064] ExpandWithDepthWidth: 0.667s, 5 calls @ 667000us
+
+[17002064] ForLoop1: 0.661s, 20 calls @ 661000us
+
+[17002064] ForLoop2: 0.438s, 130260 calls @ 438000us
+
+[17002064] InitData: 0.001s, 5 calls @ 1000us
+
+[17002064] InitNewNode: 0s, 75 calls @ 0us
+
+[17002064] SubtractionTrick: 0s, 35 calls @ 0us
+
+[17002064] SyncHistograms: 0.001s, 20 calls @ 1000us
+
+[17002064] Update: 0.669s, 5 calls @ 669000us
+
+[17002064] ======== Monitor: QuantileHistMaker ========
+[17002064] Update: 0.675s, 5 calls @ 675000us
+
+[17002064] ======== Monitor: GBTree ========
+[17002064] BoostNewTrees: 0.675s, 5 calls @ 675000us
+
+[17002064] CommitModel: 0s, 5 calls @ 0us
+
+[17002064] Configure: 0s, 1 calls @ 0us
+
+[17002064] ConfigureUpdaters: 0s, 6 calls @ 0us
+
+[17002064] ConfigureWithKnownData: 0s, 5 calls @ 0us
+
+[17002064] DoBoost: 0.675s, 5 calls @ 675000us
+
+[17002064] InitUpdater: 0s, 1 calls @ 0us
+
+[17002064] PerformTreeMethodHeuristic: 0s, 5 calls @ 0us
+
+[17002064] PredictBatch: 0s, 5 calls @ 0us
+
+[17002064] update: 0.675s, 5 calls @ 675000us
+
+xgb.train cost 0.825690746307373 s
+
+booster.predict cost 0.010298013687133789 s
+
+去掉ForLoop2的计时操作
+
+[17002067] ======== Monitor: Quantile::Builder ========
+[17002067] ApplySplit: 0.001s, 35 calls @ 1000us
+
+[17002067] BuildLocalHistogramsLevelWise: 0.483s, 20 calls @ 483000us
+
+[17002067] BuildNodeStats: 0s, 20 calls @ 0us
+
+[17002067] EvaluateSplit: 0s, 75 calls @ 0us
+
+[17002067] ExpandWithDepthWidth: 0.49s, 5 calls @ 490000us
+
+[17002067] ForLoop1: 0.482s, 20 calls @ 482000us
+
+[17002067] InitData: 0s, 5 calls @ 0us
+
+[17002067] InitNewNode: 0s, 75 calls @ 0us
+
+[17002067] SubtractionTrick: 0s, 35 calls @ 0us
+
+[17002067] SyncHistograms: 0s, 20 calls @ 0us
+
+[17002067] Update: 0.49s, 5 calls @ 490000us
+
+[17002067] ======== Monitor: QuantileHistMaker ========
+[17002067] Update: 0.498s, 5 calls @ 498000us
+
+[17002067] ======== Monitor: GBTree ========
+[17002067] BoostNewTrees: 0.498s, 5 calls @ 498000us
+
+[17002067] CommitModel: 0s, 5 calls @ 0us
+
+[17002067] Configure: 0s, 1 calls @ 0us
+
+[17002067] ConfigureUpdaters: 0s, 6 calls @ 0us
+
+[17002067] ConfigureWithKnownData: 0s, 5 calls @ 0us
+
+[17002067] DoBoost: 0.498s, 5 calls @ 498000us
+
+[17002067] InitUpdater: 0s, 1 calls @ 0us
+
+[17002067] PerformTreeMethodHeuristic: 0s, 5 calls @ 0us
+
+[17002067] PredictBatch: 0s, 5 calls @ 0us
+
+[17002067] update: 0.498s, 5 calls @ 498000us
+
+xgb.train cost 0.6358022689819336 s
+
+booster.predict cost 0.010084867477416992 s
+
+将ObliviousArrayAssign操作转化为非oblivious操作
+
+[17002074] ======== Monitor: Quantile::Builder ========
+[17002074] ApplySplit: 0s, 35 calls @ 0us
+
+[17002074] BuildLocalHistogramsLevelWise: 0.339s, 20 calls @ 339000us
+
+[17002074] BuildNodeStats: 0s, 20 calls @ 0us
+
+[17002074] EvaluateSplit: 0.001s, 75 calls @ 1000us
+
+[17002074] ExpandWithDepthWidth: 0.345s, 5 calls @ 345000us
+
+[17002074] ForLoop1: 0.337s, 20 calls @ 337000us
+
+[17002074] InitData: 0s, 5 calls @ 0us
+
+[17002074] InitNewNode: 0s, 75 calls @ 0us
+
+[17002074] SubtractionTrick: 0s, 35 calls @ 0us
+
+[17002074] SyncHistograms: 0s, 20 calls @ 0us
+
+[17002074] Update: 0.345s, 5 calls @ 345000us
+
+[17002074] ======== Monitor: QuantileHistMaker ========
+[17002074] Update: 0.351s, 5 calls @ 351000us
+
+[17002074] ======== Monitor: GBTree ========
+[17002074] BoostNewTrees: 0.351s, 5 calls @ 351000us
+
+[17002074] CommitModel: 0s, 5 calls @ 0us
+
+[17002074] Configure: 0s, 1 calls @ 0us
+
+[17002074] ConfigureUpdaters: 0s, 6 calls @ 0us
+
+[17002074] ConfigureWithKnownData: 0s, 5 calls @ 0us
+
+[17002074] DoBoost: 0.351s, 5 calls @ 351000us
+
+[17002074] InitUpdater: 0s, 1 calls @ 0us
+
+[17002074] PerformTreeMethodHeuristic: 0s, 5 calls @ 0us
+
+[17002074] PredictBatch: 0s, 5 calls @ 0us
+
+[17002074] update: 0.351s, 5 calls @ 351000us
+
+xgb.train cost 0.4879894256591797 s
+
+booster.predict cost 0.010728120803833008 s
+
+将ObliviousArrayAccess操作转化为非oblivious操作
+
+[17002120] ======== Monitor: Quantile::Builder ========
+[17002120] ApplySplit: 0.002s, 35 calls @ 2000us
+
+[17002120] BuildLocalHistogramsLevelWise: 0.153s, 20 calls @ 153000us
+
+[17002120] BuildNodeStats: 0s, 20 calls @ 0us
+
+[17002120] EvaluateSplit: 0s, 75 calls @ 0us
+
+[17002120] ExpandWithDepthWidth: 0.16s, 5 calls @ 160000us
+
+[17002120] ForLoop1: 0.153s, 20 calls @ 153000us
+
+[17002120] InitData: 0s, 5 calls @ 0us
+
+[17002120] InitNewNode: 0s, 75 calls @ 0us
+
+[17002120] SubtractionTrick: 0s, 35 calls @ 0us
+
+[17002120] SyncHistograms: 0s, 20 calls @ 0us
+
+[17002120] Update: 0.16s, 5 calls @ 160000us
+
+[17002120] ======== Monitor: QuantileHistMaker ========
+[17002120] Update: 0.167s, 5 calls @ 167000us
+
+[17002120] ======== Monitor: GBTree ========
+[17002120] BoostNewTrees: 0.167s, 5 calls @ 167000us
+
+[17002120] CommitModel: 0s, 5 calls @ 0us
+
+[17002120] Configure: 0s, 1 calls @ 0us
+
+[17002120] ConfigureUpdaters: 0s, 6 calls @ 0us
+
+[17002120] ConfigureWithKnownData: 0s, 5 calls @ 0us
+
+[17002120] DoBoost: 0.167s, 5 calls @ 167000us
+
+[17002120] InitUpdater: 0s, 1 calls @ 0us
+
+[17002120] PerformTreeMethodHeuristic: 0s, 5 calls @ 0us
+
+[17002120] PredictBatch: 0s, 5 calls @ 0us
+
+[17002120] update: 0.167s, 5 calls @ 167000us
+
+xgb.train cost 0.3099353313446045 s
+
+booster.predict cost 0.01005411148071289 s
+
+
+
+
+
+train:6513
+test:1611
+tree_method:hist
+max_depth:10
+num_rounds:5
+
+[17004451] ======== Monitor: Quantile::Builder ========
+[17004451] ApplySplit: 0.07s, 5115 calls @ 70000us
+
+[17004451] BuildLocalHistogramsLevelWise: 10.284s, 55 calls @ 10284000us
+
+[17004451] BuildNodeStats: 0.016s, 55 calls @ 16000us
+
+[17004451] EvaluateSplit: 0.037s, 10235 calls @ 37000us
+
+[17004451] ExpandWithDepthWidth: 10.512s, 5 calls @ 10512000us
+
+[17004451] ForLoop1: 10.14s, 55 calls @ 10140000us
+
+[17004451] ForLoop2: 1.145s, 358215 calls @ 1145000us
+
+[17004451] InitData: 0s, 5 calls @ 0us
+
+[17004451] InitNewNode: 0.006s, 10235 calls @ 6000us
+
+[17004451] ObliviousArrayAccessBytes: 3.781s, 358215 calls @ 3781000us
+
+[17004451] ObliviousArrayAssignBytes: 3.776s, 358215 calls @ 3776000us
+
+[17004451] ObliviousChoose: 0.244s, 358215 calls @ 244000us
+
+[17004451] SubtractionTrick: 0.003s, 5115 calls @ 3000us
+
+[17004451] SyncHistograms: 0.007s, 55 calls @ 7000us
+
+[17004451] Update: 10.514s, 5 calls @ 10514000us
+
+[17004451] ======== Monitor: QuantileHistMaker ========
+[17004451] Update: 10.52s, 5 calls @ 10520000us
+
+[17004451] ======== Monitor: GBTree ========
+[17004451] BoostNewTrees: 10.52s, 5 calls @ 10520000us
+
+[17004451] CommitModel: 0s, 5 calls @ 0us
+
+[17004451] Configure: 0s, 1 calls @ 0us
+
+[17004451] ConfigureUpdaters: 0s, 6 calls @ 0us
+
+[17004451] ConfigureWithKnownData: 0.002s, 5 calls @ 2000us
+
+[17004451] DoBoost: 10.522s, 5 calls @ 10522000us
+
+[17004451] InitUpdater: 0s, 1 calls @ 0us
+
+[17004451] PerformTreeMethodHeuristic: 0.001s, 5 calls @ 1000us
+
+[17004451] PredictBatch: 0s, 5 calls @ 0us
+
+[17004451] update: 10.52s, 5 calls @ 10520000us
+
+xgb.train cost 10.66640591621399 s
+
+booster.predict cost 0.11484837532043457 s
+
+去除计时操作的影响
+
+[17004458] ======== Monitor: Quantile::Builder ========
+[17004458] ApplySplit: 0.063s, 5115 calls @ 63000us
+
+[17004458] BuildLocalHistogramsLevelWise: 8.256s, 55 calls @ 8256000us
+
+[17004458] BuildNodeStats: 0.015s, 55 calls @ 15000us
+
+[17004458] EvaluateSplit: 0.037s, 10235 calls @ 37000us
+
+[17004458] ExpandWithDepthWidth: 8.48s, 5 calls @ 8480000us
+
+[17004458] ForLoop1: 8.111s, 55 calls @ 8111000us
+
+[17004458] InitData: 0.001s, 5 calls @ 1000us
+
+[17004458] InitNewNode: 0.006s, 10235 calls @ 6000us
+
+[17004458] SubtractionTrick: 0.002s, 5115 calls @ 2000us
+
+[17004458] SyncHistograms: 0.01s, 55 calls @ 10000us
+
+[17004458] Update: 8.481s, 5 calls @ 8481000us
+
+[17004458] ======== Monitor: QuantileHistMaker ========
+[17004458] Update: 8.486s, 5 calls @ 8486000us
+
+[17004458] ======== Monitor: GBTree ========
+[17004458] BoostNewTrees: 8.487s, 5 calls @ 8487000us
+
+[17004458] CommitModel: 0s, 5 calls @ 0us
+
+[17004458] Configure: 0s, 1 calls @ 0us
+
+[17004458] ConfigureUpdaters: 0s, 6 calls @ 0us
+
+[17004458] ConfigureWithKnownData: 0s, 5 calls @ 0us
+
+[17004458] DoBoost: 8.487s, 5 calls @ 8487000us
+
+[17004458] InitUpdater: 0s, 1 calls @ 0us
+
+[17004458] PerformTreeMethodHeuristic: 0s, 5 calls @ 0us
+
+[17004458] PredictBatch: 0s, 5 calls @ 0us
+
+[17004458] update: 8.487s, 5 calls @ 8487000us
+
+xgb.train cost 8.63426947593689 s
+
+booster.predict cost 0.11466860771179199 s
+
+将ObliviousArrayAccessBytes操作转化为非oblivious操作
+
+[17004474] ======== Monitor: Quantile::Builder ========
+[17004474] ApplySplit: 0.062s, 5115 calls @ 62000us
+
+[17004474] BuildLocalHistogramsLevelWise: 4.824s, 55 calls @ 4824000us
+
+[17004474] BuildNodeStats: 0.015s, 55 calls @ 15000us
+
+[17004474] EvaluateSplit: 0.039s, 10235 calls @ 39000us
+
+[17004474] ExpandWithDepthWidth: 5.04s, 5 calls @ 5040000us
+
+[17004474] ForLoop1: 4.679s, 55 calls @ 4679000us
+
+[17004474] InitData: 0s, 5 calls @ 0us
+
+[17004474] InitNewNode: 0.008s, 10235 calls @ 8000us
+
+[17004474] SubtractionTrick: 0.005s, 5115 calls @ 5000us
+
+[17004474] SyncHistograms: 0.012s, 55 calls @ 12000us
+
+[17004474] Update: 5.041s, 5 calls @ 5041000us
+
+[17004474] ======== Monitor: QuantileHistMaker ========
+[17004474] Update: 5.047s, 5 calls @ 5047000us
+
+[17004474] ======== Monitor: GBTree ========
+[17004474] BoostNewTrees: 5.047s, 5 calls @ 5047000us
+
+[17004474] CommitModel: 0s, 5 calls @ 0us
+
+[17004474] Configure: 0s, 1 calls @ 0us
+
+[17004474] ConfigureUpdaters: 0s, 6 calls @ 0us
+
+[17004474] ConfigureWithKnownData: 0s, 5 calls @ 0us
+
+[17004474] DoBoost: 5.047s, 5 calls @ 5047000us
+
+[17004474] InitUpdater: 0s, 1 calls @ 0us
+
+[17004474] PerformTreeMethodHeuristic: 0s, 5 calls @ 0us
+
+[17004474] PredictBatch: 0s, 5 calls @ 0us
+
+[17004474] update: 5.047s, 5 calls @ 5047000us
+
+xgb.train cost 5.1931068897247314 s
+
+xgb.train cost 5.1931068897247314 s
+
+将ObliviousArrayAssignBytes操作转化为非oblivious操作
+
+[17004478] ======== Monitor: Quantile::Builder ========
+[17004478] ApplySplit: 0.074s, 5115 calls @ 74000us
+
+[17004478] BuildLocalHistogramsLevelWise: 1.382s, 55 calls @ 1382000us
+
+[17004478] BuildNodeStats: 0.01s, 55 calls @ 10000us
+
+[17004478] EvaluateSplit: 0.031s, 10235 calls @ 31000us
+
+[17004478] ExpandWithDepthWidth: 1.602s, 5 calls @ 1602000us
+
+[17004478] ForLoop1: 1.238s, 55 calls @ 1238000us
+
+[17004478] InitData: 0s, 5 calls @ 0us
+
+[17004478] InitNewNode: 0.005s, 10235 calls @ 5000us
+
+[17004478] SubtractionTrick: 0.004s, 5115 calls @ 4000us
+
+[17004478] SyncHistograms: 0.008s, 55 calls @ 8000us
+
+[17004478] Update: 1.602s, 5 calls @ 1602000us
+
+[17004478] ======== Monitor: QuantileHistMaker ========
+[17004478] Update: 1.608s, 5 calls @ 1608000us
+
+[17004478] ======== Monitor: GBTree ========
+[17004478] BoostNewTrees: 1.608s, 5 calls @ 1608000us
+
+[17004478] CommitModel: 0s, 5 calls @ 0us
+
+[17004478] Configure: 0s, 1 calls @ 0us
+
+[17004478] ConfigureUpdaters: 0s, 6 calls @ 0us
+
+[17004478] ConfigureWithKnownData: 0s, 5 calls @ 0us
+
+[17004478] DoBoost: 1.608s, 5 calls @ 1608000us
+
+[17004478] InitUpdater: 0s, 1 calls @ 0us
+
+[17004478] PerformTreeMethodHeuristic: 0s, 5 calls @ 0us
+
+[17004478] PredictBatch: 0s, 5 calls @ 0us
+
+[17004478] update: 1.608s, 5 calls @ 1608000us
+
+xgb.train cost 1.7508316040039062 s
+
+booster.predict cost 0.11241292953491211 s
+
+将ObliviousArrayAccess、ObliviousArrayAssign操作转化为非oblivious操作
+
+[17004481] ======== Monitor: Quantile::Builder ========
+[17004481] ApplySplit: 0.071s, 5115 calls @ 71000us
+
+[17004481] BuildLocalHistogramsLevelWise: 0.436s, 55 calls @ 436000us
+
+[17004481] BuildNodeStats: 0.017s, 55 calls @ 17000us
+
+[17004481] EvaluateSplit: 0.041s, 10235 calls @ 41000us
+
+[17004481] ExpandWithDepthWidth: 0.675s, 5 calls @ 675000us
+
+[17004481] ForLoop1: 0.282s, 55 calls @ 282000us
+
+[17004481] InitData: 0s, 5 calls @ 0us
+
+[17004481] InitNewNode: 0.008s, 10235 calls @ 8000us
+
+[17004481] SubtractionTrick: 0.002s, 5115 calls @ 2000us
+
+[17004481] SyncHistograms: 0.006s, 55 calls @ 6000us
+
+[17004481] Update: 0.675s, 5 calls @ 675000us
+
+[17004481] ======== Monitor: QuantileHistMaker ========
+[17004481] Update: 0.681s, 5 calls @ 681000us
+
+[17004481] ======== Monitor: GBTree ========
+[17004481] BoostNewTrees: 0.681s, 5 calls @ 681000us
+
+[17004481] CommitModel: 0s, 5 calls @ 0us
+
+[17004481] Configure: 0s, 1 calls @ 0us
+
+[17004481] ConfigureUpdaters: 0.001s, 6 calls @ 1000us
+
+[17004481] ConfigureWithKnownData: 0.001s, 5 calls @ 1000us
+
+[17004481] DoBoost: 0.682s, 5 calls @ 682000us
+
+[17004481] InitUpdater: 0s, 1 calls @ 0us
+
+[17004481] PerformTreeMethodHeuristic: 0s, 5 calls @ 0us
+
+[17004481] PredictBatch: 0s, 5 calls @ 0us
+
+[17004481] update: 0.681s, 5 calls @ 681000us
+
+xgb.train cost 0.8267087936401367 s
+
+booster.predict cost 0.11417102813720703 s
+
+
+
+
+
+train:6513
+test:1611
+tree_method:hist
+max_depth:11
+num_rounds:5
+
+[17004540] ======== Monitor: Quantile::Builder ========
+[17004540] ApplySplit: 0.13s, 10235 calls @ 130000us
+
+[17004540] BuildLocalHistogramsLevelWise: 17.804s, 60 calls @ 17804000us
+
+[17004540] BuildNodeStats: 0.032s, 60 calls @ 32000us
+
+[17004540] EvaluateSplit: 0.07s, 20475 calls @ 70000us
+
+[17004540] ExpandWithDepthWidth: 18.242s, 5 calls @ 18242000us
+
+[17004540] ForLoop1: 17.442s, 60 calls @ 17442000us
+
+[17004540] ForLoop2: 1.232s, 390780 calls @ 1232000us
+
+[17004540] InitData: 0s, 5 calls @ 0us
+
+[17004540] InitNewNode: 0.015s, 20475 calls @ 15000us
+
+[17004540] ObliviousArrayAccessBytes: 7.368s, 390780 calls @ 7368000us
+
+[17004540] ObliviousArrayAssignBytes: 7.171s, 390780 calls @ 7171000us
+
+[17004540] ObliviousChoose: 0.275s, 390780 calls @ 275000us
+
+[17004540] SubtractionTrick: 0.009s, 10235 calls @ 9000us
+
+[17004540] SyncHistograms: 0.02s, 60 calls @ 20000us
+
+[17004540] Update: 18.242s, 5 calls @ 18242000us
+
+[17004540] ======== Monitor: QuantileHistMaker ========
+[17004540] Update: 18.248s, 5 calls @ 18248000us
+
+[17004540] ======== Monitor: GBTree ========
+[17004540] BoostNewTrees: 18.248s, 5 calls @ 18248000us
+
+[17004540] CommitModel: 0s, 5 calls @ 0us
+
+[17004540] Configure: 0.001s, 1 calls @ 1000us
+
+[17004540] ConfigureUpdaters: 0.001s, 6 calls @ 1000us
+
+[17004540] ConfigureWithKnownData: 0s, 5 calls @ 0us
+
+[17004540] DoBoost: 18.248s, 5 calls @ 18248000us
+
+[17004540] InitUpdater: 0s, 1 calls @ 0us
+
+[17004540] PerformTreeMethodHeuristic: 0s, 5 calls @ 0us
+
+[17004540] PredictBatch: 0s, 5 calls @ 0us
+
+[17004540] update: 18.248s, 5 calls @ 18248000us
+
+xgb.train cost 18.39103388786316 s
+
+booster.predict cost 0.2162947654724121 s
+
+
+
+
+
+
+
+train:6513
+test:1611
+tree_method:hist
+max_depth:12
+num_rounds:5
+
+[17004539] ======== Monitor: Quantile::Builder ========
+[17004539] ApplySplit: 0.296s, 20475 calls @ 296000us
+
+[17004539] BuildLocalHistogramsLevelWise: 32.905s, 65 calls @ 32905000us
+
+[17004539] BuildNodeStats: 0.056s, 65 calls @ 56000us
+
+[17004539] EvaluateSplit: 0.147s, 40955 calls @ 147000us
+
+[17004539] ExpandWithDepthWidth: 33.872s, 5 calls @ 33872000us
+
+[17004539] ForLoop1: 32.145s, 65 calls @ 32145000us
+
+[17004539] ForLoop2: 1.353s, 423345 calls @ 1353000us
+
+[17004539] InitData: 0s, 5 calls @ 0us
+
+[17004539] InitNewNode: 0.024s, 40955 calls @ 24000us
+
+[17004539] ObliviousArrayAccessBytes: 14.623s, 423345 calls @ 14623000us
+
+[17004539] ObliviousArrayAssignBytes: 14.4s, 423345 calls @ 14400000us
+
+[17004539] ObliviousChoose: 0.289s, 423345 calls @ 289000us
+
+[17004539] SubtractionTrick: 0.017s, 20475 calls @ 17000us
+
+[17004539] SyncHistograms: 0.037s, 65 calls @ 37000us
+
+[17004539] Update: 33.872s, 5 calls @ 33872000us
+
+[17004539] ======== Monitor: QuantileHistMaker ========
+[17004539] Update: 33.878s, 5 calls @ 33878000us
+
+[17004539] ======== Monitor: GBTree ========
+[17004539] BoostNewTrees: 33.878s, 5 calls @ 33878000us
+
+[17004539] CommitModel: 0.001s, 5 calls @ 1000us
+
+[17004539] Configure: 0s, 1 calls @ 0us
+
+[17004539] ConfigureUpdaters: 0s, 6 calls @ 0us
+
+[17004539] ConfigureWithKnownData: 0s, 5 calls @ 0us
+
+[17004539] DoBoost: 33.879s, 5 calls @ 33879000us
+
+[17004539] InitUpdater: 0s, 1 calls @ 0us
+
+[17004539] PerformTreeMethodHeuristic: 0s, 5 calls @ 0us
+
+[17004539] PredictBatch: 0s, 5 calls @ 0us
+
+[17004539] update: 33.878s, 5 calls @ 33878000us
+
+xgb.train cost 34.02619123458862 s
+
+booster.predict cost 0.4204854965209961 s
+
+
+
+
+
+train:6513
+test:1611
+tree_method:hist
+max_depth:13
+num_rounds:5
+
+[17004495] ======== Monitor: Quantile::Builder ========
+[17004495] ApplySplit: 0.604s, 40955 calls @ 604000us
+
+[17004495] BuildLocalHistogramsLevelWise: 63.526s, 70 calls @ 63526000us
+
+[17004495] BuildNodeStats: 0.106s, 70 calls @ 106000us
+
+[17004495] EvaluateSplit: 0.28s, 81915 calls @ 280000us
+
+[17004495] ExpandWithDepthWidth: 65.436s, 5 calls @ 65436000us
+
+[17004495] ForLoop1: 61.875s, 70 calls @ 61875000us
+
+[17004495] ForLoop2: 1.551s, 455910 calls @ 1551000us
+
+[17004495] InitData: 0s, 5 calls @ 0us
+
+[17004495] InitNewNode: 0.056s, 81915 calls @ 56000us
+
+[17004495] ObliviousArrayAccessBytes: 29.254s, 455910 calls @ 29254000us
+
+[17004495] ObliviousArrayAssignBytes: 29.192s, 455910 calls @ 29192000us
+
+[17004495] ObliviousChoose: 0.295s, 455910 calls @ 295000us
+
+[17004495] SubtractionTrick: 0.036s, 40955 calls @ 36000us
+
+[17004495] SyncHistograms: 0.071s, 70 calls @ 71000us
+
+[17004495] Update: 65.438s, 5 calls @ 65438000us
+
+[17004495] ======== Monitor: QuantileHistMaker ========
+[17004495] Update: 65.443s, 5 calls @ 65443000us
+
+[17004495] ======== Monitor: GBTree ========
+[17004495] BoostNewTrees: 65.443s, 5 calls @ 65443000us
+
+[17004495] CommitModel: 0s, 5 calls @ 0us
+
+[17004495] Configure: 0.001s, 1 calls @ 1000us
+
+[17004495] ConfigureUpdaters: 0s, 6 calls @ 0us
+
+[17004495] ConfigureWithKnownData: 0s, 5 calls @ 0us
+
+[17004495] DoBoost: 65.443s, 5 calls @ 65443000us
+
+[17004495] InitUpdater: 0.001s, 1 calls @ 1000us
+
+[17004495] PerformTreeMethodHeuristic: 0s, 5 calls @ 0us
+
+[17004495] PredictBatch: 0s, 5 calls @ 0us
+
+[17004495] update: 65.443s, 5 calls @ 65443000us
+
+xgb.train cost 65.59128785133362 s
+
+booster.predict cost 0.8377954959869385 s
+
+
+
+
+
+train:6513
+test:1611
+tree_method:hist
+max_depth:14
+num_rounds:5
+
+[17004497] ======== Monitor: Quantile::Builder ========
+[17004497] ApplySplit: 1.215s, 81915 calls @ 1215000us
+
+[17004497] BuildLocalHistogramsLevelWise: 125.824s, 75 calls @ 125824000us
+
+[17004497] BuildNodeStats: 0.222s, 75 calls @ 222000us
+
+[17004497] EvaluateSplit: 0.524s, 163835 calls @ 524000us
+
+[17004497] ExpandWithDepthWidth: 129.883s, 5 calls @ 129883000us
+
+[17004497] ForLoop1: 122.294s, 75 calls @ 122294000us
+
+[17004497] ForLoop2: 1.64s, 488475 calls @ 1640000us
+
+[17004497] InitData: 0s, 5 calls @ 0us
+
+[17004497] InitNewNode: 0.109s, 163835 calls @ 109000us
+
+[17004497] ObliviousArrayAccessBytes: 59.173s, 488475 calls @ 59173000us
+
+[17004497] ObliviousArrayAssignBytes: 59.358s, 488475 calls @ 59358000us
+
+[17004497] ObliviousChoose: 0.334s, 488475 calls @ 334000us
+
+[17004497] SubtractionTrick: 0.065s, 81915 calls @ 65000us
+
+[17004497] SyncHistograms: 0.138s, 75 calls @ 138000us
+
+[17004497] Update: 129.886s, 5 calls @ 129886000us
+
+[17004497] ======== Monitor: QuantileHistMaker ========
+[17004497] Update: 129.892s, 5 calls @ 129892000us
+
+[17004497] ======== Monitor: GBTree ========
+[17004497] BoostNewTrees: 129.892s, 5 calls @ 129892000us
+
+[17004497] CommitModel: 0.001s, 5 calls @ 1000us
+
+[17004497] Configure: 0.001s, 1 calls @ 1000us
+
+[17004497] ConfigureUpdaters: 0s, 6 calls @ 0us
+
+[17004497] ConfigureWithKnownData: 0s, 5 calls @ 0us
+
+[17004497] DoBoost: 129.893s, 5 calls @ 129893000us
+
+[17004497] InitUpdater: 0.001s, 1 calls @ 1000us
+
+[17004497] PerformTreeMethodHeuristic: 0s, 5 calls @ 0us
+
+[17004497] PredictBatch: 0s, 5 calls @ 0us
+
+[17004497] update: 129.892s, 5 calls @ 129892000us
+
+xgb.train cost 130.04391407966614 s
+
+booster.predict cost 1.6487705707550049 s
+
+去除计时操作的影响
+
+[17004502] ======== Monitor: Quantile::Builder ========
+[17004502] ApplySplit: 1.218s, 81915 calls @ 1218000us
+
+[17004502] BuildLocalHistogramsLevelWise: 121.531s, 75 calls @ 121531000us
+
+[17004502] BuildNodeStats: 0.217s, 75 calls @ 217000us
+
+[17004502] EvaluateSplit: 0.552s, 163835 calls @ 552000us
+
+[17004502] ExpandWithDepthWidth: 125.594s, 5 calls @ 125594000us
+
+[17004502] ForLoop1: 118.45s, 75 calls @ 118450000us
+
+[17004502] InitData: 0s, 5 calls @ 0us
+
+[17004502] InitNewNode: 0.099s, 163835 calls @ 99000us
+
+[17004502] SubtractionTrick: 0.076s, 81915 calls @ 76000us
+
+[17004502] SyncHistograms: 0.146s, 75 calls @ 146000us
+
+[17004502] Update: 125.597s, 5 calls @ 125597000us
+
+[17004502] ======== Monitor: QuantileHistMaker ========
+[17004502] Update: 125.603s, 5 calls @ 125603000us
+
+[17004502] ======== Monitor: GBTree ========
+[17004502] BoostNewTrees: 125.603s, 5 calls @ 125603000us
+
+[17004502] CommitModel: 0.001s, 5 calls @ 1000us
+
+[17004502] Configure: 0s, 1 calls @ 0us
+
+[17004502] ConfigureUpdaters: 0s, 6 calls @ 0us
+
+[17004502] ConfigureWithKnownData: 0s, 5 calls @ 0us
+
+[17004502] DoBoost: 125.604s, 5 calls @ 125604000us
+
+[17004502] InitUpdater: 0s, 1 calls @ 0us
+
+[17004502] PerformTreeMethodHeuristic: 0s, 5 calls @ 0us
+
+[17004502] PredictBatch: 0s, 5 calls @ 0us
+
+[17004502] update: 125.603s, 5 calls @ 125603000us
+
+xgb.train cost 125.75707817077637 s
+
+booster.predict cost 1.652958869934082 s
+
+将ObliviousArrayAssignBytes、ObliviousArrayAccessBytes操作转化为非oblivious操作
+
+[17004536] ======== Monitor: Quantile::Builder ========
+[17004536] ApplySplit: 1.369s, 81915 calls @ 1369000us
+
+[17004536] BuildLocalHistogramsLevelWise: 5.018s, 75 calls @ 5018000us
+
+[17004536] BuildNodeStats: 0.22s, 75 calls @ 220000us
+
+[17004536] EvaluateSplit: 0.468s, 163835 calls @ 468000us
+
+[17004536] ExpandWithDepthWidth: 9.245s, 5 calls @ 9245000us
+
+[17004536] ForLoop1: 1.699s, 75 calls @ 1699000us
+
+[17004536] InitData: 0s, 5 calls @ 0us
+
+[17004536] InitNewNode: 0.112s, 163835 calls @ 112000us
+
+[17004536] SubtractionTrick: 0.067s, 81915 calls @ 67000us
+
+[17004536] SyncHistograms: 0.142s, 75 calls @ 142000us
+
+[17004536] Update: 9.248s, 5 calls @ 9248000us
+
+[17004536] ======== Monitor: QuantileHistMaker ========
+[17004536] Update: 9.253s, 5 calls @ 9253000us
+
+[17004536] ======== Monitor: GBTree ========
+[17004536] BoostNewTrees: 9.253s, 5 calls @ 9253000us
+
+[17004536] CommitModel: 0.002s, 5 calls @ 2000us
+
+[17004536] Configure: 0s, 1 calls @ 0us
+
+[17004536] ConfigureUpdaters: 0s, 6 calls @ 0us
+
+[17004536] ConfigureWithKnownData: 0s, 5 calls @ 0us
+
+[17004536] DoBoost: 9.255s, 5 calls @ 9255000us
+
+[17004536] InitUpdater: 0s, 1 calls @ 0us
+
+[17004536] PerformTreeMethodHeuristic: 0s, 5 calls @ 0us
+
+[17004536] PredictBatch: 0s, 5 calls @ 0us
+
+[17004536] update: 9.253s, 5 calls @ 9253000us
+
+xgb.train cost 9.39761734008789 s
+
+booster.predict cost 1.6435227394104004 s
+
+
+
+
+
+train:6513
+test:1611
+tree_method:hist
+max_depth:30(20\15)
+num_rounds:5
+
+
+2023-11-20T02:53:26+0000.588959Z [(H)ERROR] tid(0x7fa36fbb4740) | :OE_ENCLAVE_ABORTING [/source/openenclave/host/calls.c:_call_enclave_function_impl:56]
+Ecall failed: result=19 (OE_ENCLAVE_ABORTING)
+Traceback (most recent call last):
+  File "e2e-demo.py", line 55, in <module>
+    booster = xgb.train(params, dtrain, num_rounds, evals=[(dtrain, "train"), (dtest, "test")])
+  File "/usr/local/lib/python3.6/dist-packages/securexgboost-0.1-py3.6.egg/securexgboost/training.py", line 238, in train
+    evals=evals)
+  File "/usr/local/lib/python3.6/dist-packages/securexgboost-0.1-py3.6.egg/securexgboost/training.py", line 84, in _train_internal
+    bst.update(dtrain, i, obj)
+  File "/usr/local/lib/python3.6/dist-packages/securexgboost-0.1-py3.6.egg/securexgboost/core.py", line 1469, in update
+    signers, c_signatures, c_lengths))
+  File "/usr/local/lib/python3.6/dist-packages/securexgboost-0.1-py3.6.egg/securexgboost/core.py", line 203, in _check_call
+    raise XGBoostError(py_str(_LIB.XGBGetLastError()))
+securexgboost.core.XGBoostError
+
+The operation cannot be completed because the enclave is aborting.
+
+
+
+
+
+
+
+train:6513
+test:1611
+tree_method:hist
+max_depth:3
+num_rounds:100
+
+[17004716] ======== Monitor: Quantile::Builder ========
+[17004716] ApplySplit: 0.017s, 700 calls @ 17000us
+
+[17004716] BuildLocalHistogramsLevelWise: 9.555s, 400 calls @ 9555000us
+
+[17004716] BuildNodeStats: 0.006s, 400 calls @ 6000us
+
+[17004716] EvaluateSplit: 0.005s, 1500 calls @ 5000us
+
+[17004716] ExpandWithDepthWidth: 9.682s, 100 calls @ 9682000us
+
+[17004716] ForLoop1: 9.532s, 400 calls @ 9532000us
+
+[17004716] InitData: 0.003s, 100 calls @ 3000us
+
+[17004716] InitNewNode: 0.005s, 1500 calls @ 5000us
+
+[17004716] SubtractionTrick: 0.001s, 700 calls @ 1000us
+
+[17004716] SyncHistograms: 0.008s, 400 calls @ 8000us
+
+[17004716] Update: 9.685s, 100 calls @ 9685000us
+
+[17004716] ======== Monitor: QuantileHistMaker ========
+[17004716] Update: 9.703s, 100 calls @ 9703000us
+
+[17004716] ======== Monitor: GBTree ========
+[17004716] BoostNewTrees: 9.709s, 100 calls @ 9709000us
+
+[17004716] CommitModel: 0s, 100 calls @ 0us
+
+[17004716] Configure: 0s, 1 calls @ 0us
+
+[17004716] ConfigureUpdaters: 0.001s, 101 calls @ 1000us
+
+[17004716] ConfigureWithKnownData: 0.001s, 100 calls @ 1000us
+
+[17004716] DoBoost: 9.71s, 100 calls @ 9710000us
+
+[17004716] InitUpdater: 0s, 1 calls @ 0us
+
+[17004716] PerformTreeMethodHeuristic: 0s, 100 calls @ 0us
+
+[17004716] PredictBatch: 0s, 100 calls @ 0us
+
+[17004716] update: 9.709s, 100 calls @ 9709000us
+
+xgb.train cost 10.764410018920898 s
+
+booster.predict cost 0.027483701705932617 s
+
+
+
+将ObliviousArrayAccess、ObliviousArrayAssign操作转化为非oblivious操作
+
+[17004719] ======== Monitor: Quantile::Builder ========
+[17004719] ApplySplit: 0.026s, 700 calls @ 26000us
+
+[17004719] BuildLocalHistogramsLevelWise: 3.091s, 400 calls @ 3091000us
+
+[17004719] BuildNodeStats: 0.005s, 400 calls @ 5000us
+
+[17004719] EvaluateSplit: 0.012s, 1500 calls @ 12000us
+
+[17004719] ExpandWithDepthWidth: 3.228s, 100 calls @ 3228000us
+
+[17004719] ForLoop1: 3.073s, 400 calls @ 3073000us
+
+[17004719] InitData: 0.001s, 100 calls @ 1000us
+
+[17004719] InitNewNode: 0.003s, 1500 calls @ 3000us
+
+[17004719] SubtractionTrick: 0s, 700 calls @ 0us
+
+[17004719] SyncHistograms: 0.001s, 400 calls @ 1000us
+
+[17004719] Update: 3.229s, 100 calls @ 3229000us
+
+[17004719] ======== Monitor: QuantileHistMaker ========
+[17004719] Update: 3.257s, 100 calls @ 3257000us
+
+[17004719] ======== Monitor: GBTree ========
+[17004719] BoostNewTrees: 3.262s, 100 calls @ 3262000us
+
+[17004719] CommitModel: 0.005s, 100 calls @ 5000us
+
+[17004719] Configure: 0s, 1 calls @ 0us
+
+[17004719] ConfigureUpdaters: 0.002s, 101 calls @ 2000us
+
+[17004719] ConfigureWithKnownData: 0.002s, 100 calls @ 2000us
+
+[17004719] DoBoost: 3.269s, 100 calls @ 3269000us
+
+[17004719] InitUpdater: 0s, 1 calls @ 0us
+
+[17004719] PerformTreeMethodHeuristic: 0s, 100 calls @ 0us
+
+[17004719] PredictBatch: 0.001s, 100 calls @ 1000us
+
+[17004719] update: 3.262s, 100 calls @ 3262000us
+
+xgb.train cost 4.300818681716919 s
+
+booster.predict cost 0.0276796817779541 s
+
+
+
+train:65130
+test:16110
+tree_method:hist
+max_depth:3
+num_rounds:5
+
+[17005326] ======== Monitor: Quantile::Builder ========
+[17005326] ApplySplit: 0.003s, 35 calls @ 3000us
+
+[17005326] BuildLocalHistogramsLevelWise: 6.454s, 20 calls @ 6454000us
+
+[17005326] BuildNodeStats: 0s, 20 calls @ 0us
+
+[17005326] EvaluateSplit: 0.003s, 75 calls @ 3000us
+
+[17005326] ExpandWithDepthWidth: 6.496s, 5 calls @ 6496000us
+
+[17005326] ForLoop1: 6.452s, 20 calls @ 6452000us
+
+[17005326] ForLoop2: 4.268s, 1302600 calls @ 4268000us
+
+[17005326] InitData: 0.001s, 5 calls @ 1000us
+
+[17005326] InitNewNode: 0s, 75 calls @ 0us
+
+[17005326] SubtractionTrick: 0s, 35 calls @ 0us
+
+[17005326] SyncHistograms: 0s, 20 calls @ 0us
+
+[17005326] Update: 6.498s, 5 calls @ 6498000us
+
+[17005326] ======== Monitor: QuantileHistMaker ========
+[17005326] Update: 6.541s, 5 calls @ 6541000us
+
+[17005326] ======== Monitor: GBTree ========
+[17005326] BoostNewTrees: 6.541s, 5 calls @ 6541000us
+
+[17005326] CommitModel: 0s, 5 calls @ 0us
+
+[17005326] Configure: 0s, 1 calls @ 0us
+
+[17005326] ConfigureUpdaters: 0s, 6 calls @ 0us
+
+[17005326] ConfigureWithKnownData: 0s, 5 calls @ 0us
+
+[17005326] DoBoost: 6.541s, 5 calls @ 6541000us
+
+[17005326] InitUpdater: 0s, 1 calls @ 0us
+
+[17005326] PerformTreeMethodHeuristic: 0s, 5 calls @ 0us
+
+[17005326] PredictBatch: 0s, 5 calls @ 0us
+
+[17005326] update: 6.541s, 5 calls @ 6541000us
+
+xgb.train cost 6.697201251983643 s
+
+booster.predict cost 0.023682355880737305 s
+
+
+去掉ForLoop2的计时操作
+
+[17005331] ======== Monitor: Quantile::Builder ========
+[17005331] ApplySplit: 0.004s, 35 calls @ 4000us
+
+[17005331] BuildLocalHistogramsLevelWise: 4.746s, 20 calls @ 4746000us
+
+[17005331] BuildNodeStats: 0.001s, 20 calls @ 1000us
+
+[17005331] EvaluateSplit: 0.001s, 75 calls @ 1000us
+
+[17005331] ExpandWithDepthWidth: 4.784s, 5 calls @ 4784000us
+
+[17005331] ForLoop1: 4.743s, 20 calls @ 4743000us
+
+[17005331] InitData: 0.001s, 5 calls @ 1000us
+
+[17005331] InitNewNode: 0s, 75 calls @ 0us
+
+[17005331] SubtractionTrick: 0s, 35 calls @ 0us
+
+[17005331] SyncHistograms: 0s, 20 calls @ 0us
+
+[17005331] Update: 4.786s, 5 calls @ 4786000us
+
+[17005331] ======== Monitor: QuantileHistMaker ========
+[17005331] Update: 4.83s, 5 calls @ 4830000us
+
+[17005331] ======== Monitor: GBTree ========
+[17005331] BoostNewTrees: 4.831s, 5 calls @ 4831000us
+
+[17005331] CommitModel: 0s, 5 calls @ 0us
+
+[17005331] Configure: 0s, 1 calls @ 0us
+
+[17005331] ConfigureUpdaters: 0s, 6 calls @ 0us
+
+[17005331] ConfigureWithKnownData: 0s, 5 calls @ 0us
+
+[17005331] DoBoost: 4.831s, 5 calls @ 4831000us
+
+[17005331] InitUpdater: 0s, 1 calls @ 0us
+
+[17005331] PerformTreeMethodHeuristic: 0s, 5 calls @ 0us
+
+[17005331] PredictBatch: 0s, 5 calls @ 0us
+
+[17005331] update: 4.831s, 5 calls @ 4831000us
+
+xgb.train cost 4.991535186767578 s
+
+booster.predict cost 0.02351093292236328 s
+
+
+将ObliviousArrayAccess、ObliviousArrayAssign操作转化为非oblivious操作
+
+[17005335] ======== Monitor: Quantile::Builder ========
+[17005335] ApplySplit: 0.004s, 35 calls @ 4000us
+
+[17005335] BuildLocalHistogramsLevelWise: 1.49s, 20 calls @ 1490000us
+
+[17005335] BuildNodeStats: 0s, 20 calls @ 0us
+
+[17005335] EvaluateSplit: 0.001s, 75 calls @ 1000us
+
+[17005335] ExpandWithDepthWidth: 1.527s, 5 calls @ 1527000us
+
+[17005335] ForLoop1: 1.487s, 20 calls @ 1487000us
+
+[17005335] InitData: 0s, 5 calls @ 0us
+
+[17005335] InitNewNode: 0s, 75 calls @ 0us
+
+[17005335] SubtractionTrick: 0s, 35 calls @ 0us
+
+[17005335] SyncHistograms: 0s, 20 calls @ 0us
+
+[17005335] Update: 1.528s, 5 calls @ 1528000us
+
+[17005335] ======== Monitor: QuantileHistMaker ========
+[17005335] Update: 1.571s, 5 calls @ 1571000us
+
+[17005335] ======== Monitor: GBTree ========
+[17005335] BoostNewTrees: 1.571s, 5 calls @ 1571000us
+
+[17005335] CommitModel: 0.001s, 5 calls @ 1000us
+
+[17005335] Configure: 0s, 1 calls @ 0us
+
+[17005335] ConfigureUpdaters: 0s, 6 calls @ 0us
+
+[17005335] ConfigureWithKnownData: 0s, 5 calls @ 0us
+
+[17005335] DoBoost: 1.572s, 5 calls @ 1572000us
+
+[17005335] InitUpdater: 0s, 1 calls @ 0us
+
+[17005335] PerformTreeMethodHeuristic: 0s, 5 calls @ 0us
+
+[17005335] PredictBatch: 0s, 5 calls @ 0us
+
+[17005335] update: 1.571s, 5 calls @ 1571000us
+
+xgb.train cost 1.731271743774414 s
+
+booster.predict cost 0.023157119750976562 s
+
+
+
+
+train:651300
+test:161100
+tree_method:hist
+max_depth:3
+num_rounds:5
+
+2023-11-21T02:34:59+0000.350941Z [(H)ERROR] tid(0x7f03fc950740) | :OE_ENCLAVE_ABORTING [/source/openenclave/host/calls.c:_call_enclave_function_impl:56]
+Ecall failed: result=19 (OE_ENCLAVE_ABORTING)
+Traceback (most recent call last):
+  File "e2e-demo.py", line 36, in <module>
+    dtrain = xgb.DMatrix({username: enc_training_data})
+  File "/usr/local/lib/python3.6/dist-packages/securexgboost-0.1-py3.6.egg/securexgboost/core.py", line 570, in __init__
+    c_lengths))
+  File "/usr/local/lib/python3.6/dist-packages/securexgboost-0.1-py3.6.egg/securexgboost/core.py", line 203, in _check_call
+    raise XGBoostError(py_str(_LIB.XGBGetLastError()))
+securexgboost.core.XGBoostError
+
+

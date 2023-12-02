@@ -34,6 +34,8 @@ namespace gbm {
 DMLC_REGISTRY_FILE_TAG(gbtree);
 
 void GBTree::Configure(const Args& cfg) {
+  monitor_.Start(__func__);
+
   this->cfg_ = cfg;
   std::string updater_seq = tparam_.updater_seq;
   tparam_.UpdateAllowUnknown(cfg);
@@ -90,6 +92,8 @@ void GBTree::Configure(const Args& cfg) {
   }
 
   configured_ = true;
+
+  monitor_.Stop(__func__);
 }
 
 // FIXME(trivialfis): This handles updaters.  Because the choice of updaters depends on
@@ -97,6 +101,8 @@ void GBTree::Configure(const Args& cfg) {
 // on DMatrix once `hist` tree method can handle external memory so that we can make it
 // default.
 void GBTree::ConfigureWithKnownData(Args const& cfg, DMatrix* fmat) {
+  monitor_.Start(__func__);
+
   CHECK(this->configured_);
   std::string updater_seq = tparam_.updater_seq;
   CHECK(tparam_.GetInitialised());
@@ -112,9 +118,13 @@ void GBTree::ConfigureWithKnownData(Args const& cfg, DMatrix* fmat) {
     this->updaters_.clear();
     this->InitUpdater(cfg);
   }
+
+  monitor_.Stop(__func__);
 }
 
 void GBTree::PerformTreeMethodHeuristic(DMatrix* fmat) {
+  monitor_.Start(__func__);
+
   if (specified_updater_) {
     // This method is disabled when `updater` parameter is explicitly
     // set, since only experts are expected to do so.
@@ -122,6 +132,7 @@ void GBTree::PerformTreeMethodHeuristic(DMatrix* fmat) {
   }
   // tparam_ is set before calling this function.
   if (tparam_.tree_method != TreeMethod::kAuto) {
+    monitor_.Stop(__func__);
     return;
   }
 
@@ -145,9 +156,13 @@ void GBTree::PerformTreeMethodHeuristic(DMatrix* fmat) {
     tparam_.tree_method = TreeMethod::kExact;
   }
   LOG(DEBUG) << "Using tree method: " << static_cast<int>(tparam_.tree_method);
+
+  monitor_.Stop(__func__);
 }
 
 void GBTree::ConfigureUpdaters() {
+  monitor_.Start(__func__);
+
   if (specified_updater_) {
     return;
   }
@@ -180,15 +195,17 @@ void GBTree::ConfigureUpdaters() {
       LOG(FATAL) << "Unknown tree_method ("
                  << static_cast<int>(tparam_.tree_method) << ") detected";
   }
+
+  monitor_.Stop(__func__);
 }
 
 void GBTree::DoBoost(DMatrix* p_fmat,
                      HostDeviceVector<GradientPair>* in_gpair,
                      PredictionCacheEntry* predt) {
+  monitor_.Start(__func__);
   std::vector<std::vector<std::unique_ptr<RegTree> > > new_trees;
   const int ngroup = model_.learner_model_param->num_output_group;
   ConfigureWithKnownData(this->cfg_, p_fmat);
-  monitor_.Start("BoostNewTrees");
   CHECK_NE(ngroup, 0);
   if (ngroup == 1) {
     std::vector<std::unique_ptr<RegTree> > ret;
@@ -214,11 +231,15 @@ void GBTree::DoBoost(DMatrix* p_fmat,
       new_trees.push_back(std::move(ret));
     }
   }
-  monitor_.Stop("BoostNewTrees");
   this->CommitModel(std::move(new_trees), p_fmat, predt);
+  monitor_.Stop(__func__);
+
+  monitor_.Print();
 }
 
 void GBTree::InitUpdater(Args const& cfg) {
+  monitor_.Start(__func__);
+
   std::string tval = tparam_.updater_seq;
   std::vector<std::string> ups = common::Split(tval, ',');
 
@@ -256,12 +277,16 @@ void GBTree::InitUpdater(Args const& cfg) {
     up->Configure(cfg);
     updaters_.push_back(std::move(up));
   }
+
+  monitor_.Stop(__func__);
 }
 
 void GBTree::BoostNewTrees(HostDeviceVector<GradientPair>* gpair,
                            DMatrix *p_fmat,
                            int bst_group,
                            std::vector<std::unique_ptr<RegTree> >* ret) {
+  monitor_.Start(__func__);
+
   std::vector<RegTree*> new_trees;
   ret->clear();
   // create the trees
@@ -298,9 +323,12 @@ void GBTree::BoostNewTrees(HostDeviceVector<GradientPair>* gpair,
   CHECK_EQ(gpair->Size(), p_fmat->Info().num_row_)
       << "Mismatching size between number of rows from input data and size of "
          "gradient vector.";
+  monitor_.Start("update");
   for (auto& up : updaters_) {
     up->Update(gpair, p_fmat, new_trees);
   }
+  monitor_.Stop("update");
+  monitor_.Stop(__func__);
 }
 
 void GBTree::CommitModel(std::vector<std::vector<std::unique_ptr<RegTree>>>&& new_trees,
@@ -325,6 +353,8 @@ void GBTree::CommitModel(std::vector<std::vector<std::unique_ptr<RegTree>>>&& ne
 }
 
 void GBTree::LoadConfig(Json const& in) {
+  monitor_.Start(__func__);
+
   CHECK_EQ(get<String>(in["name"]), "gbtree");
   FromJson(in["gbtree_train_param"], &tparam_);
   // Process type cannot be kUpdate from loaded model
@@ -354,6 +384,8 @@ void GBTree::LoadConfig(Json const& in) {
   }
 
   specified_updater_ = get<Boolean>(in["specified_updater"]);
+
+  monitor_.Stop(__func__);
 }
 
 void GBTree::SaveConfig(Json* p_out) const {
@@ -395,9 +427,12 @@ void GBTree::PredictBatch(DMatrix* p_fmat,
                           PredictionCacheEntry* out_preds,
                           bool training,
                           unsigned ntree_limit) {
+  monitor_.Start(__func__);
+
   CHECK(configured_);
   GetPredictor(&out_preds->predictions, p_fmat)
       ->PredictBatch(p_fmat, out_preds, model_, 0, ntree_limit);
+  monitor_.Stop(__func__);
 }
 
 std::unique_ptr<Predictor> const &
@@ -536,6 +571,8 @@ class Dart : public GBTree {
                     PredictionCacheEntry* p_out_preds,
                     bool training,
                     unsigned ntree_limit) override {
+    monitor_.Start(__func__);
+
     DropTrees(training);
     int num_group = model_.learner_model_param->num_output_group;
     ntree_limit *= num_group;
@@ -556,11 +593,16 @@ class Dart : public GBTree {
     const int nthread = omp_get_max_threads();
     InitThreadTemp(nthread);
     PredLoopSpecalize(p_fmat, &out_preds, num_group, 0, ntree_limit);
+
+    monitor_.Stop(__func__);
+    // monitor_.Print();
   }
 
   void PredictInstance(const SparsePage::Inst &inst,
                        std::vector<bst_float> *out_preds,
                        unsigned ntree_limit) override {
+    monitor_.Start(__func__);
+    
     DropTrees(false);
     if (thread_temp_.size() == 0) {
       thread_temp_.resize(1, RegTree::FVec());
@@ -577,6 +619,8 @@ class Dart : public GBTree {
           PredValue(inst, gid, &thread_temp_[0], 0, ntree_limit) +
           model_.learner_model_param->base_score;
     }
+
+    monitor_.Stop(__func__);
   }
 
   bool UseGPU() const override {
@@ -587,17 +631,24 @@ class Dart : public GBTree {
                            std::vector<bst_float>* out_contribs,
                            unsigned ntree_limit, bool approximate, int condition,
                            unsigned condition_feature) override {
+    monitor_.Start(__func__);
+    
     CHECK(configured_);
     cpu_predictor_->PredictContribution(p_fmat, out_contribs, model_,
                                         ntree_limit, &weight_drop_, approximate);
+    monitor_.Stop(__func__);
   }
 
   void PredictInteractionContributions(DMatrix* p_fmat,
                                        std::vector<bst_float>* out_contribs,
                                        unsigned ntree_limit, bool approximate) override {
+    monitor_.Start(__func__);
+
     CHECK(configured_);
     cpu_predictor_->PredictInteractionContributions(p_fmat, out_contribs, model_,
                                                     ntree_limit, &weight_drop_, approximate);
+
+    monitor_.Stop(__func__);
   }
 
 
