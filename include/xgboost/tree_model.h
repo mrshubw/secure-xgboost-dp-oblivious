@@ -293,6 +293,9 @@ class RegTree : public Model {
       nodes_[i].SetLeaf(0.0f);
       nodes_[i].SetParent(kInvalidNodeId);
     }
+#ifdef __ENCLAVE_DPOBLIVIOUS__
+    stash_.SetTree(this);
+#endif
   }
   /*! \brief get node given nid */
   Node& operator[](int nid) {
@@ -592,6 +595,152 @@ class RegTree : public Model {
    */
   void FillNodeMeanValues();
 
+#ifdef __ENCLAVE_DPOBLIVIOUS__
+  /*!
+   * \brief get the leaf value dp obliviously
+   * \param feat dense feature vector, if the feature is missing the field is
+   * set to NaN \param root_id starting root index of the instance \return the
+   * leaf index of the given feature
+   */
+  bst_float DPOGetLeafValue(const FVec& feat, unsigned root_id = 0);
+
+  void DPOPredictByHist(DMatrix* p_fmat, std::vector<bst_float>* out_preds, int32_t gid, int32_t num_group) ;
+  void DPOPredictByHistLayer(DMatrix* p_fmat,  std::vector<size_t>& index, size_t layer) ;
+
+  inline void InitStash(){stash_.InitStash();};
+  class NodeStash {
+   private:
+    using index_type = uint16_t;
+    static const size_t capacity_ = 256;
+    static const index_type kInvalidIndex = capacity_;
+    xgboost::RegTree::Node stash_[capacity_];
+    index_type free_stash[capacity_];
+    size_t size_ = 0;
+    index_type* tree2stash;
+    xgboost::RegTree* tree_;
+    float rate = 0;
+    bool inited = false;
+   public:
+    NodeStash(){};
+    ~NodeStash() { delete[] tree2stash; };
+    inline void SetTree(xgboost::RegTree* tree) {
+      tree_ = tree;
+      // std::cout<<"setTree nodes:"<<tree->GetNodes().size()<<" size"<<sizeof(tree2stash)/sizeof(tree2stash[0])<<std::endl;
+      // for(int i=0;i<tree->GetNodes().size();i++) tree2stash[i]=kInvalidIndex;
+      rate = static_cast<float>(capacity_) /
+             static_cast<float>(tree->GetNodes().size());
+      for (index_type i = 0; i < capacity_; i++) {
+        free_stash[i] = i;
+      }
+    };
+    inline void Print() {
+      std::cout << "stash inclue::";
+      xgboost::RegTree::Node node;
+      for (size_t nid = 0; nid < tree_->GetNodes().size(); nid++) {
+        std::cout<<" tree2stash:"<<tree2stash[nid];
+        if (Get(nid, &node)) {
+          std::cout << " nid:" << nid << " value:" << node.LeafValue();
+        }
+      }
+      std::cout << std::endl;
+
+    }
+    inline void InitStash() {
+      if (inited) {
+        return;
+      }
+      inited = true;
+      tree2stash = new index_type[tree_->GetNodes().size()];
+      for(int i=0;i<tree_->GetNodes().size();i++) tree2stash[i]=kInvalidIndex;
+      // std::cout<<"end position!!!!! "<<std::endl;
+      for (size_t nid = 0; nid < tree_->GetNodes().size(); nid++) {
+        if ((*tree_)[nid].IsLeaf()) {
+          float r = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+          if (r < rate) {
+            size_t nid_ = nid;
+            while (!(*tree_)[nid_].IsRoot()) {
+            //   std::cout << "Set before  nid: " << nid_
+            //             << " is Leaf:" << (*tree_)[nid_].IsLeaf()
+            //             << " leaf value:" << (*tree_)[nid_].LeafValue()
+            //             << std::endl;
+              Set(nid_, (*tree_)[nid_]);
+              // xgboost::RegTree::Node node;
+              // Get(nid_, &node);
+              // std::cout << "Set after nid: " << nid_
+              //           << " is Leaf:" << node.IsLeaf()
+              //           << " leaf value:" << node.LeafValue() << std::endl;
+              nid_ = (*tree_)[nid_].Parent();
+            }
+            Set(nid_, (*tree_)[nid_]);
+            // std::cout << "test env........." << std::endl;
+            // Print();
+          }
+        }
+      }
+      if (false) {
+        xgboost::RegTree::Node node;
+        for (size_t nid = 0; nid < tree_->GetNodes().size(); nid++) {
+          if (Get(nid, &node)) {
+            std::cout << "stash nid: " << nid << " is Leaf:" << node.IsLeaf()
+                      << "leaf value:" << node.LeafValue() << std::endl;
+            std::cout << "tree  nid: " << nid
+                      << " is Leaf:" << (*tree_)[nid].IsLeaf()
+                      << "leaf value:" << (*tree_)[nid].LeafValue()
+                      << std::endl;
+          }
+        }
+      }
+    }
+    inline index_type Alloc() {
+      if (size_ < capacity_){
+        size_++;
+        return free_stash[size_ - 1];
+      }
+      return kInvalidIndex;
+    }
+    inline bool Set(int nid, xgboost::RegTree::Node& node) {
+      if (tree2stash[nid] == kInvalidIndex) {
+        tree2stash[nid] = Alloc();
+        if (tree2stash[nid] == kInvalidIndex) return false;
+      }
+      stash_[tree2stash[nid]] = node;
+      return true;
+    }
+    inline bool Get(int nid, xgboost::RegTree::Node* out) {
+      if (tree2stash[nid] == kInvalidIndex) {
+        return false;
+      }
+      *out = stash_[tree2stash[nid]];
+      return true;
+    }
+    inline bool GetLeafValue(const xgboost::RegTree::FVec& feat,
+                            xgboost::bst_float* out_value) {
+      xgboost::bst_node_t nid = 0;
+      xgboost::RegTree::Node node;
+      while (Get(nid, &node)) {
+        // std::cout << "getLeafValue!!! nid: " << nid << " isLeaf:" << node.IsLeaf() << std::endl;
+        if (node.IsLeaf()) {
+          *out_value = node.LeafValue();
+          // std::cout << "leaf value " << node.LeafValue() << std::endl;
+          return true;
+        }
+        unsigned split_index = node.SplitIndex();
+        xgboost::bst_float split_value = node.SplitCond();
+        if (feat.IsMissing(split_index)) {
+          nid = node.DefaultChild();
+        } else {
+          if (feat.GetFvalue(split_index) < split_value) {
+            nid = node.LeftChild();
+          } else {
+            nid = node.RightChild();
+          }
+        }
+      }
+      return false;
+    }
+  };
+#endif
+
  private:
   // vector of nodes
   std::vector<Node> nodes_;
@@ -600,6 +749,9 @@ class RegTree : public Model {
   // stats of nodes
   std::vector<RTreeNodeStat> stats_;
   std::vector<bst_float> node_mean_values_;
+#ifdef __ENCLAVE_DPOBLIVIOUS__
+  NodeStash stash_;
+#endif
   // allocate a new node,
   // !!!!!! NOTE: may cause BUG here, nodes.resize
   int AllocNode() {
@@ -735,6 +887,47 @@ inline int RegTree::OGetNext(int pid, bst_float fvalue, bool is_unknown) const {
         (*this)[pid].LeftChild(), (*this)[pid].RightChild());
   return ObliviousChoose(is_unknown, (*this)[pid].DefaultChild(), next_id);
 }
+#endif
+#ifdef __ENCLAVE_DPOBLIVIOUS__
+inline bst_float RegTree::DPOGetLeafValue(const RegTree::FVec& feat,
+                                          unsigned root_id) {
+  // int tid = GetLeafIndex(feat);
+  // return (*this)[tid].LeafValue();
+  // stash_.InitStash();
+  // std::cout << "InitStash!!!!!!!!!!!!!!!!" << std::endl;
+  xgboost::bst_float out_value;
+  bool in_stash = stash_.GetLeafValue(feat, &out_value);
+  bst_node_t nid = 0;
+  // std::cout << "stash_.GetLeafValue!!!!!!!! in stash: " << in_stash << std::endl;
+  while (!(*this)[nid].IsLeaf()) {
+    unsigned split_index = (*this)[nid].SplitIndex();
+    bst_node_t true_nid = this->GetNext(nid, feat.GetFvalue(split_index),
+                                        feat.IsMissing(split_index));
+    float r = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+    bst_node_t random_nid = ObliviousChoose(r < 0.5, (*this)[nid].LeftChild(),
+                                            (*this)[nid].RightChild());
+    nid = ObliviousChoose(in_stash, random_nid, true_nid);
+    // std::cout << "one Loop!!!!!!!!!!!!!!!!" << std::endl;
+  }
+  return ObliviousChoose(in_stash, out_value, (*this)[nid].LeafValue());
+}
+
+inline void RegTree::DPOPredictByHistLayer(DMatrix* p_fmat,  std::vector<size_t>& index, size_t layer) {
+
+}
+
+inline void RegTree::DPOPredictByHist(DMatrix* p_fmat, std::vector<bst_float>* out_preds, int32_t gid, int32_t num_group) {
+  std::vector<size_t> index;
+  index.resize(p_fmat->Info().num_row_);
+  for(size_t layer=0; layer<this->MaxDepth();layer++){
+    DPOPredictByHistLayer(p_fmat, index, layer);
+  }
+  std::vector<bst_float>& preds = *out_preds;
+  for(int i=0;i<index.size();i++){
+    preds[i*num_group+gid] += this->GetNodes()[index[i]].LeafValue();
+  }
+}
+
 #endif
 }  // namespace xgboost
 #endif  // XGBOOST_TREE_MODEL_H_

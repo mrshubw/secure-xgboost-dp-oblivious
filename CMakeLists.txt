@@ -41,6 +41,8 @@ option(SIMULATE
     "Build enclave in simulation mode" OFF)
 option(OBLIVIOUS
     "Enable oblivious training and inference" OFF)
+option(DPOBLIVIOUS
+    "Enable dp-oblivious training and inference" OFF)
 option(USE_AVX2 
     "Use AVX2 instructions to speed up oblivious primitives" ON)
 option(LVI_MITIGATION
@@ -99,6 +101,11 @@ if(OBLIVIOUS)
 else()
     message("\nDisabling obliviousness.\n")
 endif(OBLIVIOUS)
+if(DPOBLIVIOUS)
+    message("\nEnabling dp-obliviousness.\n")
+else()
+    message("\nDisabling dp-obliviousness.\n")
+endif(DPOBLIVIOUS)
 if(CONSENSUS)
     message("\nEnabling consensus.\n")
 else()
