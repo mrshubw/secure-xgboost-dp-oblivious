@@ -44,7 +44,7 @@ params = {
         "objective": "binary:logistic",
         "min_child_weight": "1",
         "gamma": "0.1",
-        "max_depth": "3",
+        "max_depth": "10",
         "verbosity": "3" 
 }
 
