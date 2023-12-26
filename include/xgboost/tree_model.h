@@ -604,8 +604,10 @@ class RegTree : public Model {
    */
   bst_float DPOGetLeafValue(const FVec& feat, unsigned root_id = 0);
 
-  void DPOPredictByHist(DMatrix* p_fmat, std::vector<bst_float>* out_preds, int32_t gid, int32_t num_group) ;
-  void DPOPredictByHistLayer(DMatrix* p_fmat,  std::vector<size_t>& index, size_t layer) ;
+  void DPOPredictByHist(DMatrix* p_fmat, std::vector<bst_float>* out_preds, int32_t gid, int32_t num_group,
+                        std::vector<RegTree::FVec>& p_thread_temp) ;
+  void DPOPredictByHistLayer(DMatrix* p_fmat,  std::vector<size_t>& index, size_t layer, RegTree::FVec& p_feat) ;
+  int FirstNodeInLayer(int layer);
 
   inline void InitStash(){stash_.InitStash();};
   class NodeStash {
@@ -912,16 +914,47 @@ inline bst_float RegTree::DPOGetLeafValue(const RegTree::FVec& feat,
   return ObliviousChoose(in_stash, out_value, (*this)[nid].LeafValue());
 }
 
-inline void RegTree::DPOPredictByHistLayer(DMatrix* p_fmat,  std::vector<size_t>& index, size_t layer) {
+inline int RegTree::FirstNodeInLayer(int layer){
+  return std::max(2*layer-1,0);
+}
+
+inline void RegTree::DPOPredictByHistLayer(DMatrix* p_fmat,  std::vector<size_t>& index, size_t layer, RegTree::FVec& p_feat) {
+  for (int nid=FirstNodeInLayer(layer); nid<FirstNodeInLayer(layer+1); nid++){
+    for (auto const& batch : p_fmat->GetBatches<SparsePage>()) {
+      auto nsize = batch.Size();
+      for(int i=0;i<nsize;i++){
+        if(index[batch.base_rowid+i]==nid&&!(*this)[nid].IsLeaf()){
+          p_feat.Fill(batch[i]);
+          unsigned split_index = (*this)[nid].SplitIndex();
+        // std::cout<<"index size:"<<index.size()<<" base rowid:"<<batch.base_rowid<<std::endl;
+        // std::cout<<"p_feat.size:"<<p_feat.Size()<<std::endl;
+        // std::cout<<"nid:"<<nid<<" fvalue:"<<p_feat.GetFvalue(split_index)<<" IsMissing:"<<p_feat.IsMissing(split_index)<<std::endl;
+          auto next = GetNext(nid, p_feat.GetFvalue(split_index), p_feat.IsMissing(split_index));
+          index[batch.base_rowid+i] = next;
+          p_feat.Drop(batch[i]);
+        }
+
+      }
+    }
+    // std::cout<<"nid:"<<nid<<std::endl;
+  }
 
 }
 
-inline void RegTree::DPOPredictByHist(DMatrix* p_fmat, std::vector<bst_float>* out_preds, int32_t gid, int32_t num_group) {
+inline void RegTree::DPOPredictByHist(DMatrix* p_fmat, std::vector<bst_float>* out_preds, int32_t gid, int32_t num_group,
+                        std::vector<RegTree::FVec>& p_thread_temp) {
+  // std::cout<<"DPOPredictByHist!!!!!!!!!!!!!!!!!!!!!!!"<<std::endl;
   std::vector<size_t> index;
   index.resize(p_fmat->Info().num_row_);
-  for(size_t layer=0; layer<this->MaxDepth();layer++){
-    DPOPredictByHistLayer(p_fmat, index, layer);
+  std::fill(index.begin(), index.end(), 0);
+  for(size_t layer=0; layer<=this->MaxDepth();layer++){
+    DPOPredictByHistLayer(p_fmat, index, layer, p_thread_temp[0]);
   }
+  // for(size_t ind: index){
+  //   std::cout<<this->GetNodes()[ind].LeafValue()<<" ";
+  // }
+  // std::cout<<std::endl;
+  // std::cout<<"breakpoint"<<std::endl;
   std::vector<bst_float>& preds = *out_preds;
   for(int i=0;i<index.size();i++){
     preds[i*num_group+gid] += this->GetNodes()[index[i]].LeafValue();

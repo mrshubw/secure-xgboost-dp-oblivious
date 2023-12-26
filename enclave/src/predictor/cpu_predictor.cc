@@ -238,12 +238,15 @@ class CPUPredictor : public Predictor {
                             gbm::GBTreeModel const& model, int32_t tree_begin,
                             int32_t tree_end) {
     monitor_.Start(__func__);
+    const int threads = omp_get_max_threads();
+    InitThreadTemp(threads, model.learner_model_param->num_feature,
+                   &this->thread_temp_);
     int32_t const num_group = model.learner_model_param->num_output_group;
     CHECK_EQ(out_preds->size(), p_fmat->Info().num_row_ * model.learner_model_param->num_output_group);
     for (int gid = 0; gid < num_group; ++gid) {
       for (size_t i = tree_begin; i < tree_end; ++i) {
         if (model.tree_info[i] == gid) {
-          model.trees[i]->DPOPredictByHist(p_fmat, out_preds, gid, num_group);
+          model.trees[i]->DPOPredictByHist(p_fmat, out_preds, gid, num_group, thread_temp_);
         }
       }
     }
@@ -330,9 +333,27 @@ class CPUPredictor : public Predictor {
 
     // be called when booster.predict in python
     if (beg_version < end_version) {
+#ifdef __ENCLAVE_DPOBLIVIOUS__
+      this->PredictDMatrixByHist(dmat, &out_preds->HostVector(), model,
+                           beg_version * output_groups,
+                           end_version * output_groups);
+
+      std::vector<bst_float> out_check;
+      out_check.resize(out_preds->HostVector().size(), 0);
+      this->PredictDMatrix(dmat, &out_check, model,
+                           beg_version * output_groups,
+                           end_version * output_groups);
+      for (size_t i = 0; i < out_check.size(); i++)
+      {
+        CHECK_EQ(out_preds->HostVector()[i], out_check[i])<<out_preds->HostVector()[i]<<","<< out_check[i];
+      }
+      
+      
+#else
       this->PredictDMatrix(dmat, &out_preds->HostVector(), model,
                            beg_version * output_groups,
                            end_version * output_groups);
+#endif
     }
 
     // delta means {size of forest} * {number of newly accumulated layers}
