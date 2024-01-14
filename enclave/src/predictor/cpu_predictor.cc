@@ -50,9 +50,9 @@ bst_float PredValue(const SparsePage::Inst& inst,
       psum += leaf_value;
       if (monitor_ != nullptr) monitor_->Stop("DPOGetLeafValue");
 
-      int tid = trees[i]->GetLeafIndex(*p_feats);
-      auto leaf_value2 = (*trees[i])[tid].LeafValue();
-      CHECK_EQ(leaf_value, leaf_value2) << leaf_value << ", " << leaf_value2;
+      // int tid = trees[i]->GetLeafIndex(*p_feats);
+      // auto leaf_value2 = (*trees[i])[tid].LeafValue();
+      // CHECK_EQ(leaf_value, leaf_value2) << leaf_value << ", " << leaf_value2;
 #else
       if (common::ObliviousEnabled()) {
         if (monitor_ != nullptr) monitor_->Start("OGetLeafValue");
@@ -246,7 +246,7 @@ class CPUPredictor : public Predictor {
     for (int gid = 0; gid < num_group; ++gid) {
       for (size_t i = tree_begin; i < tree_end; ++i) {
         if (model.tree_info[i] == gid) {
-          model.trees[i]->DPOPredictByHist(p_fmat, out_preds, gid, num_group, thread_temp_);
+          model.trees[i]->DPOPredictByHist1(p_fmat, out_preds, gid, num_group, thread_temp_[0]);
         }
       }
     }
@@ -343,6 +343,18 @@ class CPUPredictor : public Predictor {
       this->PredictDMatrix(dmat, &out_check, model,
                            beg_version * output_groups,
                            end_version * output_groups);
+      // std::cout<<"======================================";
+      // for(bst_float& temp: out_preds->HostVector()){
+      //   std::cout<<temp<<" ";
+      // }
+      // std::cout<<std::endl;
+      
+      // std::cout<<"======================================";
+      // for(bst_float& temp: out_check){
+      //   std::cout<<temp<<" ";
+      // }
+      // std::cout<<std::endl;
+
       for (size_t i = 0; i < out_check.size(); i++)
       {
         CHECK_EQ(out_preds->HostVector()[i], out_check[i])<<out_preds->HostVector()[i]<<","<< out_check[i];

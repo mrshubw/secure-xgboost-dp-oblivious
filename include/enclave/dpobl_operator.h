@@ -5,122 +5,158 @@
 #include <cstring>
 #include <type_traits>
 
+#include "enclave/obl_primitives.h"
 #include "xgboost/base.h"
 #include "xgboost/data.h"
 
 constexpr int cache_size = 4 * 1024;
 
-// template <typename T>
-// class Stash
-// {
-// private:
-//     T[]* stash_;
-//     std::vector<T>* array_;
-//     uint16_t[]* array_to_stash;
-//     bool inited;
-// public:
-//     Stash(std::vector<T>* array):array_{array}{
+/**
+ * private memory interface
+ * consist of multiple bukkets, one access one bukket
+ */
+class SMemory {
+ private:
+ protected:
+  int nbukkets_;
+  int capacity_bukket;
+  int capacity_;
+  int begin_;
+  int end_;
+  int* positions_;
+ public:
+  struct Position
+  {
+    int bukket;
+    int offset;
+  };
+  
+  SMemory(int nbukkets): nbukkets_(nbukkets) { 
+    positions_ = new int[nbukkets_]{0}; 
+    clear();
+  }
+  ~SMemory(){
+    delete[] positions_;
+    positions_ = nullptr;
+  }
+  inline int capacity() { return capacity_; }
+  inline int size() { return end_ - begin_; }
+  inline bool full() { return size() == capacity_; }
+  inline bool empty() { return begin_ == end_; }
+  inline void clear() {
+    begin_ = 0;
+    end_ = 0;
+  }
+  inline Position locate(int index){
+    index = index % capacity_;
+    return Position{index / capacity_bukket, index % capacity_bukket + 1};
+  }
+  inline void positionFill(Position pos){
+    positions_[pos.bukket] = pos.offset;
+  }
+  inline void positionDrop(Position pos){
+    positions_[pos.bukket] = 0;
+  }
+};
 
-//     };
-// };
+template <typename T>
+class SQueue: public SMemory {
+ private:
+  T** data_;
+  T* readBuf_;
 
-// template <typename T>
-// class NodeStash {
-//  private:
-//   using index_type = uint16_t;
-//   static const size_t capacity_ = 256;
-//   static const index_type kInvalidIndex = capacity_;
-//   xgboost::RegTree::Node stash_[capacity_];
-//   index_type free_stash[capacity_];
-//   size_t size_ = 0;
-//   index_type* tree2stash;
-//   xgboost::RegTree* tree_;
-//   float rate = 0;
-//   bool inited = false;
+ public:
+  SQueue(int nbukkets = 1) : SMemory(nbukkets) {
+    capacity_bukket = cache_size / sizeof(T) - 1;
+    capacity_ = nbukkets_ * capacity_bukket;
 
-//  public:
-//   NodeStash() {
-//   };
-//   ~NodeStash() { delete[] tree2stash; };
+    data_ = new T*[nbukkets_];
+    for (int i = 0; i < nbukkets_; i++) {
+      data_[i] = new T[capacity_bukket + 1];
+    }
+    readBuf_ = new T[nbukkets_];
+  };
+  ~SQueue() {
+    for (int i = 0; i < nbukkets_; i++) {
+      delete[] data_[i];
+    }
+    delete[] data_;
+    data_ = nullptr;
+    delete[] readBuf_;
+    readBuf_ = nullptr;
+  };
 
-//   inline void SetTree(xgboost::RegTree* tree) {
-//     tree_ = tree;
-//     tree2stash = new index_type[tree->GetNodes().size()]{kInvalidIndex};
-//     rate = static_cast<float>(capacity_) /
-//            static_cast<float>(tree->GetNodes().size());
-//     for (index_type i = 0; i < capacity_; i++) {
-//       free_stash[i] = i;
-//     }
-//     size_ = capacity_;
-//   };
+  inline void push_back(T& val, bool real) {
+    CHECK_LT(size(), capacity_);
 
-//   inline void InitStash() {
-//     if (inited) {
-//       return;
-//     }
-//     inited = true;
-//     for (size_t nid = 0; nid < tree_->GetNodes().size(); nid++) {
-//       if ((*tree_)[nid].IsLeaf()) {
-//         float r = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
-//         if (r < rate) {
-//           size_t nid_ = nid;
-//           while (!(*tree_)[nid_].IsRoot()) {
-//             Set(nid_, (*tree_)[nid_]);
-//             nid_ = (*tree_)[nid_].Parent();
-//           }
-//           Set(nid_, (*tree_)[nid_]);
-//         }
-//       }
-//     }
-//   }
+    // int index = end_ % capacity_;
+    // int pid = index / (capacity_ / nbukkets_);
+    // int vid = index % (capacity_ / nbukkets_) + 1;
+    // int ids[nbukkets_] = {0};
 
-//   inline index_type Alloc() {
-//     if (size_ > 0) {
-//       size_--;
-//       return free_stash[size_];
-//     }
-//     return kInvalidIndex;
-//   }
+    // ids[pid] = ObliviousChoose(real, vid, 0);
 
-//   inline bool Set(int nid, xgboost::RegTree::Node& node) {
-//     if (tree2stash[nid] == kInvalidIndex) {
-//       tree2stash[nid] = Alloc();
-//       if (tree2stash[nid] == kInvalidIndex) return false;
-//     }
-//     stash_[tree2stash[nid]] = node;
-//     return true;
-//   }
+    // for (int page = 0; page < nbukkets_; page++) {
+    //   data_[page][ids[page]] = val;
+    // }
 
-//   inline bool Get(int nid, xgboost::RegTree::Node* out) {
-//     if (tree2stash[nid] == kInvalidIndex) {
-//       return false;
-//     }
-//     *out = stash_[tree2stash[nid]];
-//     return true;
-//   }
+    Position pos = locate(end_);
+    pos.offset = ObliviousChoose(real, pos.offset, 0);
+    positionFill(pos);
+    for(int i=0;i<nbukkets_;i++){
+      data_[i][positions_[i]] = val;
+    }
+    positionDrop(pos);
+    end_ = ObliviousChoose(real, end_ + 1, end_);
+  }
 
-//   inline bool GetLeafValue(const xgboost::RegTree::FVec& feat,
-//                            xgboost::bst_float* out_value) {
-//     xgboost::bst_node_t nid = 0;
-//     xgboost::RegTree::Node node;
-//     while (Get(nid, &node)) {
-//       if (node.IsLeaf()) {
-//         *out_value = node.LeafValue();
-//         return true;
-//       }
+  inline bool pop_font(T& val, bool real = true) {
+    real = real && (begin_ < end_);
 
-//       unsigned split_index = node.SplitIndex();
-//       xgboost::bst_float split_value = node.SplitCond();
-//       if (feat.IsMissing(split_index)) {
-//         nid = node.DefaultChild();
-//       } else {
-//         if (feat.GetFvalue(split_index) < split_value) {
-//           nid = node.LeftChild();
-//         } else {
-//           nid = node.RightChild();
-//         }
-//       }
-//     }
-//     return false;
-//   }
-// };
+    // int index = begin_ % capacity_;
+    // int pid = index / (capacity_ / nbukkets_);
+    // int vid = index % (capacity_ / nbukkets_) + 1;
+    // int ids[nbukkets_] = {0};
+    // ids[pid] = ObliviousChoose(real, vid, 0);
+
+    // // for (int page=0; page<nbukkets_; page++){
+    // //     ObliviousAssign(page==pid, data_[page][ids[page]], val, &val);
+    // // }
+
+    // // val = data_[pid][ids[pid]];
+    // // 使用下述代码时间延长比较明显
+    // T temp[nbukkets_];
+    // for (size_t i = 0; i < nbukkets_; i++) {
+    //   temp[i] = data_[i][ids[i]];
+    // }
+    // val = temp[pid];
+    
+    Position pos = locate(begin_);
+    pos.offset = ObliviousChoose(real, pos.offset, 0);
+    positionFill(pos);
+    for(int i=0;i<nbukkets_;i++){
+      readBuf_[i] = data_[i][positions_[i]];
+    }
+    val = readBuf_[pos.bukket];
+    positionDrop(pos);
+
+    begin_ = ObliviousChoose(real, begin_ + 1, begin_);
+
+    if (begin_ > capacity_) {
+      begin_ -= capacity_;
+      end_ -= capacity_;
+    }
+    return real;
+  }
+};
+
+constexpr float epsilon = 1;
+constexpr float delta = 0.0001;
+
+inline int DPPrefixSum(int prefix_sum, int error) {
+  int min = -error + 1;
+  int max = error - 1;
+  int noise = (rand() % (max - min + 1)) + min;  // 范围[min,max]
+  // return prefix_sum + noise;
+  return prefix_sum + noise;
+}
