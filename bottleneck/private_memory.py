@@ -14,7 +14,7 @@ def get_privacy(input_size, delta, private_size):
 #     print(s)
 
 dataset_size_list = [1e3, 1e4, 1e5]
-private_mem_size_list = [2**i for i in range(6, 17)]
+private_mem_size_list = [2**i for i in range(4, 17)]
 delta = 1e-5
 epsilon = [0.1, 1, 10]
 

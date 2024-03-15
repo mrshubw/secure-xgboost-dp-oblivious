@@ -89,17 +89,6 @@ class SQueue: public SMemory {
   inline void push_back(T& val, bool real) {
     CHECK_LT(size(), capacity_);
 
-    // int index = end_ % capacity_;
-    // int pid = index / (capacity_ / nbukkets_);
-    // int vid = index % (capacity_ / nbukkets_) + 1;
-    // int ids[nbukkets_] = {0};
-
-    // ids[pid] = ObliviousChoose(real, vid, 0);
-
-    // for (int page = 0; page < nbukkets_; page++) {
-    //   data_[page][ids[page]] = val;
-    // }
-
     Position pos = locate(end_);
     pos.offset = ObliviousChoose(real, pos.offset, 0);
     positionFill(pos);
@@ -112,24 +101,6 @@ class SQueue: public SMemory {
 
   inline bool pop_font(T& val, bool real = true) {
     real = real && (begin_ < end_);
-
-    // int index = begin_ % capacity_;
-    // int pid = index / (capacity_ / nbukkets_);
-    // int vid = index % (capacity_ / nbukkets_) + 1;
-    // int ids[nbukkets_] = {0};
-    // ids[pid] = ObliviousChoose(real, vid, 0);
-
-    // // for (int page=0; page<nbukkets_; page++){
-    // //     ObliviousAssign(page==pid, data_[page][ids[page]], val, &val);
-    // // }
-
-    // // val = data_[pid][ids[pid]];
-    // // 使用下述代码时间延长比较明显
-    // T temp[nbukkets_];
-    // for (size_t i = 0; i < nbukkets_; i++) {
-    //   temp[i] = data_[i][ids[i]];
-    // }
-    // val = temp[pid];
     
     Position pos = locate(begin_);
     pos.offset = ObliviousChoose(real, pos.offset, 0);
@@ -138,6 +109,169 @@ class SQueue: public SMemory {
       readBuf_[i] = data_[i][positions_[i]];
     }
     val = readBuf_[pos.bukket];
+    positionDrop(pos);
+
+    begin_ = ObliviousChoose(real, begin_ + 1, begin_);
+
+    if (begin_ > capacity_) {
+      begin_ -= capacity_;
+      end_ -= capacity_;
+    }
+    return real;
+  }
+};
+
+template <typename T>
+class SQueue<std::vector<T>>: public SMemory {
+ private:
+  T** data_;
+  T* readBuf_;
+  int vec_capacity_;
+
+  int** vec_size_;
+  int** index_;
+  int** nid_;
+  int* readBufInt_;
+
+ public:
+  SQueue(int vec_capacity, int nbukkets = 1, bool hasNid=true) : SMemory(nbukkets), vec_capacity_(vec_capacity) {
+    capacity_bukket = cache_size / sizeof(T) - 1;
+    capacity_ = nbukkets_ * capacity_bukket;
+
+    data_ = new T*[nbukkets_];
+    index_ = new int*[nbukkets_];
+    for (int i = 0; i < nbukkets_; i++) {
+      data_[i] = new T[(capacity_bukket + 1)*vec_capacity_];
+      index_[i] = new int[capacity_bukket + 1];
+    }
+    readBuf_ = new T[nbukkets_];
+    readBufInt_ = new int[nbukkets_];
+    if (hasNid)
+    {
+      nid_ = new int*[nbukkets_];
+      for (int i = 0; i < nbukkets_; i++) {
+        nid_[i] = new int[capacity_bukket + 1];
+      }
+    }
+    
+  };
+  ~SQueue() {
+    for (int i = 0; i < nbukkets_; i++) {
+      delete[] data_[i];
+      delete[] index_[i];
+    }
+    delete[] data_;
+    data_ = nullptr;
+    delete[] index_;
+    index_ = nullptr;
+    delete[] readBuf_;
+    readBuf_ = nullptr;
+    delete[] readBufInt_;
+    readBufInt_ = nullptr;
+  };
+
+  inline int vecSize(){
+    return vec_capacity_;
+  }
+
+  inline void writeData(T& val, int vec_index=0){
+    for (int i = 0; i < nbukkets_; i++)
+    {
+      data_[i][(capacity_bukket + 1)*vec_index+positions_[i]] = val;
+    }
+  }
+  inline void writeInt(int** int_, int& val){
+    for (int i = 0; i < nbukkets_; i++)
+    {
+      int_[i][positions_[i]] = val;
+    }
+  }
+
+  inline void push_back(std::vector<T>& val, int index, bool real) {
+    CHECK_LT(size(), capacity_);
+
+    Position pos = locate(end_);
+    pos.offset = ObliviousChoose(real, pos.offset, 0);
+    positionFill(pos);
+    for (int i = 0; i < vec_capacity_; i++)
+    {
+      writeData(val[i], i);
+    }
+    writeInt(index_, index);
+    
+    positionDrop(pos);
+    end_ = ObliviousChoose(real, end_ + 1, end_);
+  }
+  inline void push_back(std::vector<T>& val, int index, int nid, bool real=true) {
+    CHECK_LT(size(), capacity_);
+
+    Position pos = locate(end_);
+    pos.offset = ObliviousChoose(real, pos.offset, 0);
+    positionFill(pos);
+    for (int i = 0; i < vec_capacity_; i++)
+    {
+      writeData(val[i], i);
+    }
+    writeInt(index_, index);
+    writeInt(nid_, nid);
+    
+    positionDrop(pos);
+    end_ = ObliviousChoose(real, end_ + 1, end_);
+  }
+
+  inline void readData(int vec_index=0){
+    for (int i = 0; i < nbukkets_; i++)
+    {
+      readBuf_[i] = data_[i][(capacity_bukket + 1)*vec_index+positions_[i]];
+    }
+  }
+  inline void readInt(int** int_){
+    for (int i = 0; i < nbukkets_; i++)
+    {
+      readBufInt_[i] = int_[i][positions_[i]];
+    }
+  }
+
+  inline bool pop_font(std::vector<T>& val, int& index, bool real = true) {
+    real = real && (begin_ < end_);
+    
+    Position pos = locate(begin_);
+    pos.offset = ObliviousChoose(real, pos.offset, 0);
+    positionFill(pos);
+    for (int i = 0; i < vec_capacity_; i++)
+    {
+      readData(i);
+      val[i] = readBuf_[pos.bukket];
+    }
+    readInt(index_);
+    index = readBufInt_[pos.bukket];
+    
+    positionDrop(pos);
+
+    begin_ = ObliviousChoose(real, begin_ + 1, begin_);
+
+    if (begin_ > capacity_) {
+      begin_ -= capacity_;
+      end_ -= capacity_;
+    }
+    return real;
+  }
+  inline bool pop_font(std::vector<T>& val, int& index, int& nid, bool real = true) {
+    real = real && (begin_ < end_);
+    
+    Position pos = locate(begin_);
+    pos.offset = ObliviousChoose(real, pos.offset, 0);
+    positionFill(pos);
+    for (int i = 0; i < vec_capacity_; i++)
+    {
+      readData(i);
+      val[i] = readBuf_[pos.bukket];
+    }
+    readInt(index_);
+    index = readBufInt_[pos.bukket];
+    readInt(nid_);
+    nid = readBufInt_[pos.bukket];
+    
     positionDrop(pos);
 
     begin_ = ObliviousChoose(real, begin_ + 1, begin_);
