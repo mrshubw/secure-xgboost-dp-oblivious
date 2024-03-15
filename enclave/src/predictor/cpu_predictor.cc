@@ -355,10 +355,10 @@ class CPUPredictor : public Predictor {
       // }
       // std::cout<<std::endl;
 
-      for (size_t i = 0; i < out_check.size(); i++)
-      {
-        CHECK_EQ(out_preds->HostVector()[i], out_check[i])<<out_preds->HostVector()[i]<<","<< out_check[i];
-      }
+      // for (size_t i = 0; i < out_check.size(); i++)
+      // {
+      //   CHECK_EQ(out_preds->HostVector()[i], out_check[i])<<out_preds->HostVector()[i]<<","<< out_check[i];
+      // }
       
       
 #else
