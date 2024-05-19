@@ -22,6 +22,7 @@
 #include "xgboost/tree_updater.h"
 
 #ifdef __ENCLAVE_OBLIVIOUS__
+#include "enclave/dpobl_operator.h"
 #include "../common/quantile.h"
 #endif
 
@@ -35,37 +36,45 @@ bst_float PredValue(const SparsePage::Inst& inst,
                     const std::vector<int>& tree_info, int bst_group,
                     RegTree::FVec* p_feats, unsigned tree_begin,
                     unsigned tree_end, common::Monitor* monitor_ = nullptr) {
-  if (monitor_ != nullptr) monitor_->Start(__func__);
+  // if (monitor_ != nullptr) monitor_->Start(__func__);
   bst_float psum = 0.0f;
   p_feats->Fill(inst);
   for (size_t i = tree_begin; i < tree_end; ++i) {
     if (tree_info[i] == bst_group) {
 #ifdef __ENCLAVE_OBLIVIOUS__
 #ifdef __ENCLAVE_DPOBLIVIOUS__
-      // std::cout<<"Pred Value Tree "<<i<<std::endl;
-      trees[i]->InitStash();
-      // std::cout<<"end position!!!!! "<<std::endl;
-      if (monitor_ != nullptr) monitor_->Start("DPOGetLeafValue");
-      auto leaf_value = trees[i]->DPOGetLeafValue(*p_feats);
-      psum += leaf_value;
-      if (monitor_ != nullptr) monitor_->Stop("DPOGetLeafValue");
+      // // 最开始的dp方案，面向单个样本的，使用stash进行缓存的方案，隐私损失太大
+      // // std::cout<<"Pred Value Tree "<<i<<std::endl;
+      // trees[i]->InitStash();
+      // // std::cout<<"end position!!!!! "<<std::endl;
+      // if (monitor_ != nullptr) monitor_->Start("DPOGetLeafValue");
+      // auto leaf_value = trees[i]->DPOGetLeafValue(*p_feats);
+      // psum += leaf_value;
+      // if (monitor_ != nullptr) monitor_->Stop("DPOGetLeafValue");
 
-      // int tid = trees[i]->GetLeafIndex(*p_feats);
-      // auto leaf_value2 = (*trees[i])[tid].LeafValue();
-      // CHECK_EQ(leaf_value, leaf_value2) << leaf_value << ", " << leaf_value2;
+      // // int tid = trees[i]->GetLeafIndex(*p_feats);
+      // // auto leaf_value2 = (*trees[i])[tid].LeafValue();
+      // // CHECK_EQ(leaf_value, leaf_value2) << leaf_value << ", " << leaf_value2;
+
+      // 其他dp方案对此不进行改动
+      // if (monitor_ != nullptr) monitor_->Start("GetLeafValue");
+      int tid = trees[i]->GetLeafIndex(*p_feats);
+      psum += (*trees[i])[tid].LeafValue();
+      // if (monitor_ != nullptr) monitor_->Stop("GetLeafValue");
 #else
       if (common::ObliviousEnabled()) {
-        if (monitor_ != nullptr) monitor_->Start("OGetLeafValue");
-        auto leaf_value = trees[i]->OGetLeafValue(*p_feats);
+        // if (monitor_ != nullptr) monitor_->Start("OGetLeafValue");
+        // auto leaf_value = trees[i]->OGetLeafValue(*p_feats);
+        auto leaf_value = trees[i]->OGetLeafValueCache(*p_feats);
         // int tid = trees[i]->GetLeafIndex(*p_feats);
         // auto leaf_value = (*trees[i])[tid].LeafValue();
-        if (monitor_ != nullptr) monitor_->Stop("OGetLeafValue");
-        if (common::ObliviousDebugCheckEnabled()) {
-          int tid = trees[i]->GetLeafIndex(*p_feats);
-          auto leaf_value2 = (*trees[i])[tid].LeafValue();
-          CHECK_EQ(leaf_value, leaf_value2)
-              << leaf_value << ", " << leaf_value2;
-        }
+        // if (monitor_ != nullptr) monitor_->Stop("OGetLeafValue");
+        // if (common::ObliviousDebugCheckEnabled()) {
+        //   int tid = trees[i]->GetLeafIndex(*p_feats);
+        //   auto leaf_value2 = (*trees[i])[tid].LeafValue();
+        //   CHECK_EQ(leaf_value, leaf_value2)
+        //       << leaf_value << ", " << leaf_value2;
+        // }
         psum += leaf_value;
       } else {
         int tid = trees[i]->GetLeafIndex(*p_feats);
@@ -82,7 +91,7 @@ bst_float PredValue(const SparsePage::Inst& inst,
   }
   p_feats->Drop(inst);
 
-  if (monitor_ != nullptr) monitor_->Stop(__func__);
+  // if (monitor_ != nullptr) monitor_->Stop(__func__);
   return psum;
 }
 
@@ -214,11 +223,15 @@ class CPUPredictor : public Predictor {
     }
   }
 
+  /**
+   * 初始推断方案
+   * 将输入数据分批处理
+  */
   void PredictDMatrix(DMatrix* p_fmat, std::vector<bst_float>* out_preds,
                       gbm::GBTreeModel const& model, int32_t tree_begin,
                       int32_t tree_end) {
-    monitor_.Start(__func__);
     std::lock_guard<std::mutex> guard(lock_);
+    monitor_.Start(__func__);
     const int threads = omp_get_max_threads();
     InitThreadTemp(threads, model.learner_model_param->num_feature,
                    &this->thread_temp_);
@@ -234,7 +247,10 @@ class CPUPredictor : public Predictor {
   }
 
 #ifdef __ENCLAVE_DPOBLIVIOUS__
-  void PredictDMatrixByHist(DMatrix* p_fmat, std::vector<bst_float>* out_preds,
+  /**
+   * 逐决策树地进行推断
+  */
+  void PredictDMatrixByTrees(DMatrix* p_fmat, std::vector<bst_float>* out_preds,
                             gbm::GBTreeModel const& model, int32_t tree_begin,
                             int32_t tree_end) {
     monitor_.Start(__func__);
@@ -246,9 +262,87 @@ class CPUPredictor : public Predictor {
     for (int gid = 0; gid < num_group; ++gid) {
       for (size_t i = tree_begin; i < tree_end; ++i) {
         if (model.tree_info[i] == gid) {
-          model.trees[i]->DPOPredictByHist1(p_fmat, out_preds, gid, num_group, thread_temp_[0]);
+          model.trees[i]->DPOPredictByHist(p_fmat, out_preds, gid, num_group, thread_temp_[0]);
         }
       }
+    }
+
+    monitor_.Stop(__func__);
+  }
+
+  /**
+   * 在原始数据中添加噪声数量的伪数据
+  */
+  DMatrix* AddPseudoSamples(DMatrix* in_fmat){
+    monitor_.Start(__func__);
+
+    monitor_.Stop(__func__);
+    return in_fmat;
+  }
+
+  /**
+   * 对输入数据进行混洗
+  */
+  DMatrix* ShuffleSamples(DMatrix* in_fmat){
+    monitor_.Start(__func__);
+    xgboost::Entry buffer[1024];
+    for(int round_num=0; round_num<8; round_num++){
+      for (auto const& batch : in_fmat->GetBatches<SparsePage>()) {
+        auto nsize = batch.Size();
+        for (int i = 0; i < nsize; i++) {
+          // // 循环赋值
+          // for(int j = 0; j<batch[i].size(); j++){
+          //   buffer[j] = batch[i][j];
+          // }
+          // memcpy
+          memcpy(buffer, batch[i].data(), batch[i].size()*sizeof(xgboost::Entry));
+          // std::copy
+          // std::copy(batch[i].data(), batch[i].data()+batch[i].size(), buffer);
+        }
+      }
+    }
+
+    monitor_.Stop(__func__);
+    return in_fmat;
+  }
+
+  /**
+   * 将输入数据添加噪声后混洗，随后正常推断
+  */
+  void PredictDMatrixByNoiseShuffle(DMatrix* p_fmat, std::vector<bst_float>* out_preds,
+                            gbm::GBTreeModel const& model, int32_t tree_begin,
+                            int32_t tree_end){
+    monitor_.Start(__func__);
+
+    DMatrix* noise_fmat;
+    noise_fmat = AddPseudoSamples(p_fmat);
+    DMatrix* shuffle_fmat;
+    // shuffle_fmat = ShuffleSamples(noise_fmat);
+
+    // std::cout<<"+++++++++++++++++++++++++++++++++++++++++++"<<std::endl;
+    // PredictDMatrixByTrees(shuffle_fmat, out_preds, model, tree_begin, tree_end);
+    // PredictDMatrix(shuffle_fmat, out_preds, model, tree_begin, tree_end);
+    std::lock_guard<std::mutex> guard(lock_);
+    const int threads = omp_get_max_threads();
+    InitThreadTemp(threads, model.learner_model_param->num_feature,
+                   &this->thread_temp_);
+    Shuffler shuffler;
+    for (auto const& batch : p_fmat->GetBatches<SparsePage>()) {
+      CHECK_EQ(out_preds->size(),
+               p_fmat->Info().num_row_ *
+                   model.learner_model_param->num_output_group);
+      size_t constexpr kUnroll = 8;
+      std::vector<int> shuffle_index;
+      shuffle_index.resize(batch.Size());
+      std::vector<bst_float> shuffle_preds;
+      shuffle_preds.resize(batch.Size());
+      PredictBatchKernel(SparsePageView<kUnroll>{shuffler.shuffleForwardRandom(batch, shuffle_index, &monitor_)}, &shuffle_preds, model,
+                         tree_begin, tree_end, &thread_temp_, &monitor_);
+      for (size_t i = 0; i < shuffle_index.size(); i++)
+      {
+        (*out_preds)[shuffle_index[i]] += shuffle_preds[i];
+      }
+      
     }
 
     monitor_.Stop(__func__);
@@ -334,15 +428,16 @@ class CPUPredictor : public Predictor {
     // be called when booster.predict in python
     if (beg_version < end_version) {
 #ifdef __ENCLAVE_DPOBLIVIOUS__
-      this->PredictDMatrixByHist(dmat, &out_preds->HostVector(), model,
+      this->PredictDMatrixByNoiseShuffle(dmat, &out_preds->HostVector(), model,
                            beg_version * output_groups,
                            end_version * output_groups);
 
-      std::vector<bst_float> out_check;
-      out_check.resize(out_preds->HostVector().size(), 0);
-      this->PredictDMatrix(dmat, &out_check, model,
-                           beg_version * output_groups,
-                           end_version * output_groups);
+      // std::vector<bst_float> out_check;
+      // out_check.resize(out_preds->HostVector().size(), 0);
+      // this->PredictDMatrix(dmat, &out_check, model,
+      //                      beg_version * output_groups,
+      //                      end_version * output_groups);
+
       // std::cout<<"======================================";
       // for(bst_float& temp: out_preds->HostVector()){
       //   std::cout<<temp<<" ";

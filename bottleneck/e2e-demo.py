@@ -13,7 +13,7 @@ KEY_FILE = CURRENT_DIR + "data/key.txt"
 # Generate a key you will be using for encryption
 xgb.generate_client_key(KEY_FILE)
 
-training_data = HOME_DIR + "bottleneck/data/agaricus.txt.train"
+training_data = HOME_DIR + "bottleneck/data/agaricus.txt100k.train"
 enc_training_data = CURRENT_DIR + "data/train.enc"
 
 # Encrypt training data
@@ -40,11 +40,12 @@ dtest = xgb.DMatrix({username: enc_test_data})
 # Set parameters
 params = {
         "tree_method": "hist",
+        "max_bin": "16",
         "n_gpus": "0",
         "objective": "binary:logistic",
         "min_child_weight": "1",
         "gamma": "0.1",
-        "max_depth": "5",
+        "max_depth": "8",
         "verbosity": "3" 
 }
 

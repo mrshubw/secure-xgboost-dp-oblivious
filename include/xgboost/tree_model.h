@@ -900,6 +900,7 @@ inline bst_float RegTree::OGetLeafValue(const RegTree::FVec& feat,
   return sum;
 }
 
+// 遍历所有节点，使用缓存优化，oblivious
 inline bst_float RegTree::OGetLeafValueCache(const RegTree::FVec& feat,
                                              unsigned root_id) const {
   auto next_id = static_cast<int>(root_id);
