@@ -135,5 +135,18 @@ void Monitor::Print() const {
   }
 }
 
+
+std::pair<size_t, size_t> Monitor::GetCost(const std::string &name){
+  StatMap stat_map;
+  for (auto const& kv : statistics_map_) {
+    stat_map[kv.first] = std::make_pair(
+        kv.second.count, std::chrono::duration_cast<std::chrono::microseconds>(
+            kv.second.timer.elapsed).count());
+            std::cout<<"kv.second.count"<<std::endl;
+            // std::cout<<kv.second.count<<std::endl;
+  }
+  return stat_map[name];
+}
+
 }  // namespace common
 }  // namespace xgboost

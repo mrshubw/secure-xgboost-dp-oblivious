@@ -6,6 +6,7 @@
 #include <xgboost/logging.h>
 #include <chrono>
 #include <iostream>
+#include <fstream>
 #include <map>
 #include <string>
 #include <utility>
@@ -41,6 +42,33 @@ struct Timer {
     snprintf(buffer, sizeof(buffer), "%s:\t %fs", label.c_str(),
              SecondsT(elapsed).count());
     LOG(CONSOLE) << buffer;
+    Reset();
+  }
+  void PrintElapsed(std::string label, std::string logfile) {
+    // Create an ofstream (output file stream) object
+    std::fstream outfile;
+
+    // Open the file in write mode
+    outfile.open(logfile, std::ios::out|std::ios::app);
+    // Check if the file was opened successfully
+    if (!outfile) {
+        std::cerr << "Error opening file" << std::endl;
+        return;
+    }
+#ifdef __ENCLAVE_OBLIVIOUS__
+#ifdef __ENCLAVE_DPOBLIVIOUS__
+    outfile<<"DO ";
+#else
+    outfile<<" O ";
+#endif
+#else
+    outfile<<"NO ";
+#endif
+    outfile << label << "(s) " << ElapsedSeconds() << std::endl;
+
+    // Close the file
+    outfile.close();
+
     Reset();
   }
 };
@@ -89,6 +117,7 @@ struct Monitor {
   void Init(std::string label) { this->label_ = label; }
   void Start(const std::string &name);
   void Stop(const std::string &name);
+  std::pair<size_t, size_t> GetCost(const std::string &name);
 };
 }  // namespace common
 }  // namespace xgboost

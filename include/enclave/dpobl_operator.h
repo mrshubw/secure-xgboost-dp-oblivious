@@ -425,7 +425,7 @@ template<typename DataType>
 class Bucket<xgboost::common::Span<DataType>> {
  private:
   static constexpr size_t capability_bytes{4096};
-  size_t capability_{20};
+  size_t capability_{15};
   /*! \brief the data of the segments */
   std::vector<DataType> data;
   // Offset for each row.
@@ -479,6 +479,8 @@ class Bucket<xgboost::common::Span<DataType>> {
 };
 class Shuffler {
  private:
+  Shuffler(/* args */){};
+  ~Shuffler(){};
  public:
   class Node
   {
@@ -603,8 +605,11 @@ class Shuffler {
 
   Node root;
 
-  Shuffler(/* args */){};
-  ~Shuffler(){};
+  static Shuffler& getInstance(){
+    static Shuffler instance;
+    return instance;
+  }
+
   xgboost::SparsePage* shuffleForwardRandom(
       xgboost::SparsePage const& in_page, std::vector<int>& shuffle_index) {
     auto& in_data = in_page.data.HostVector();
@@ -622,7 +627,6 @@ class Shuffler {
     //   root.pull(in_page[i]);
     // }
     root.read(in_page);
-    std::cout<<"+++++++++++++++++++++"<<std::endl;
     root.write(*out_page, shuffle_index);
     // for (size_t i = 0; i < out_preds.size(); i++)
     // {
