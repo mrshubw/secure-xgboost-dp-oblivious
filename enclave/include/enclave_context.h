@@ -481,7 +481,11 @@ class EnclaveContext {
      * This function is only run by the master enclave, assuming that remote attestation is done before anything else
      */
     bool generate_symm_key() {
-      generate_random(m_symm_key, CIPHER_KEY_SIZE);
+      // generate_random(m_symm_key, CIPHER_KEY_SIZE);
+      
+      // In the DP Oblivious experiment, in order to separate training from inference, the key is forced to be 0. 
+      // Notice, this is not secure.
+      memset(m_symm_key, 0, CIPHER_KEY_SIZE);
     }
 
     /**

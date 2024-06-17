@@ -64,8 +64,8 @@ bst_float PredValue(const SparsePage::Inst& inst,
 #else
       if (common::ObliviousEnabled()) {
         // if (monitor_ != nullptr) monitor_->Start("OGetLeafValue");
-        // auto leaf_value = trees[i]->OGetLeafValue(*p_feats);
-        auto leaf_value = trees[i]->OGetLeafValueCache(*p_feats);
+        auto leaf_value = trees[i]->OGetLeafValue(*p_feats);
+        // auto leaf_value = trees[i]->OGetLeafValueCache(*p_feats);
         // int tid = trees[i]->GetLeafIndex(*p_feats);
         // auto leaf_value = (*trees[i])[tid].LeafValue();
         // if (monitor_ != nullptr) monitor_->Stop("OGetLeafValue");
@@ -82,10 +82,10 @@ bst_float PredValue(const SparsePage::Inst& inst,
       }
 #endif
 #else
-      if (monitor_ != nullptr) monitor_->Start("GetLeafValue");
+      // if (monitor_ != nullptr) monitor_->Start("GetLeafValue");
       int tid = trees[i]->GetLeafIndex(*p_feats);
       psum += (*trees[i])[tid].LeafValue();
-      if (monitor_ != nullptr) monitor_->Stop("GetLeafValue");
+      // if (monitor_ != nullptr) monitor_->Stop("GetLeafValue");
 #endif
     }
   }
@@ -312,11 +312,13 @@ class CPUPredictor : public Predictor {
   void PredictDMatrixByNoiseShuffle(DMatrix* p_fmat, std::vector<bst_float>* out_preds,
                             gbm::GBTreeModel const& model, int32_t tree_begin,
                             int32_t tree_end){
+                              std::cout<<"PredictDMatrixByNoiseShuffle"<<std::endl;
     monitor_.Start(__func__);
 
     DMatrix* noise_fmat;
     noise_fmat = AddPseudoSamples(p_fmat);
     DMatrix* shuffle_fmat;
+                              std::cout<<"PredictDMatrixByNoiseShuffle"<<std::endl;
     // shuffle_fmat = ShuffleSamples(noise_fmat);
 
     // std::cout<<"+++++++++++++++++++++++++++++++++++++++++++"<<std::endl;
@@ -326,7 +328,8 @@ class CPUPredictor : public Predictor {
     const int threads = omp_get_max_threads();
     InitThreadTemp(threads, model.learner_model_param->num_feature,
                    &this->thread_temp_);
-    Shuffler shuffler;
+                              std::cout<<"PredictDMatrixByNoiseShuffle"<<std::endl;
+    Shuffler& shuffler = Shuffler::getInstance();
     for (auto const& batch : p_fmat->GetBatches<SparsePage>()) {
       CHECK_EQ(out_preds->size(),
                p_fmat->Info().num_row_ *
@@ -336,7 +339,10 @@ class CPUPredictor : public Predictor {
       shuffle_index.resize(batch.Size());
       std::vector<bst_float> shuffle_preds;
       shuffle_preds.resize(batch.Size());
-      PredictBatchKernel(SparsePageView<kUnroll>{shuffler.shuffleForwardRandom(batch, shuffle_index, &monitor_)}, &shuffle_preds, model,
+      std::cout<<"for loop"<<std::endl;
+      xgboost::SparsePage* temp = shuffler.shuffleForwardRandom(batch, shuffle_index, &monitor_);
+      std::cout<<"for loop1"<<std::endl;
+      PredictBatchKernel(SparsePageView<kUnroll>{temp}, &shuffle_preds, model,
                          tree_begin, tree_end, &thread_temp_, &monitor_);
       for (size_t i = 0; i < shuffle_index.size(); i++)
       {
@@ -389,6 +395,8 @@ class CPUPredictor : public Predictor {
   void PredictBatch(DMatrix* dmat, PredictionCacheEntry* predts,
                     const gbm::GBTreeModel& model, int tree_begin,
                     uint32_t const ntree_limit = 0) override {
+    xgboost::common::Timer timer;
+    timer.Start();
     monitor_.Init("CPUPredictor");
     monitor_.Start(__func__);
     // tree_begin is not used, right now we just enforce it to be 0.
@@ -444,7 +452,6 @@ class CPUPredictor : public Predictor {
       // }
       // std::cout<<std::endl;
       
-      // std::cout<<"======================================";
       // for(bst_float& temp: out_check){
       //   std::cout<<temp<<" ";
       // }
@@ -473,6 +480,9 @@ class CPUPredictor : public Predictor {
 
     monitor_.Stop(__func__);
     monitor_.Print();
+    // std::cout<<"PredictBatch cost: "<<monitor_.GetCost(__func__).second<<std::endl;;
+    timer.Stop();
+    timer.PrintElapsed("PredictBatch", "/home/hgtc/secure-xgboost-dp-oblivious/do-enhanced/data/time.log");
   }
 
   template <typename Adapter>

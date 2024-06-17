@@ -78,6 +78,7 @@ target
 *.swp
 # vscode
 .vscode
+.venv
 
 # cpp tests and gcov generated files
 *.gcov
