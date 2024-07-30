@@ -15,6 +15,7 @@ LOG_FILE = os.path.join(DATA_DIR, "time.log")
 HIGGS_DIR = os.path.join(DATA_DIR, "higgs")
 DEMO_DIR = os.path.join(DATA_DIR, 'demo')
 ALLSTATE_DIR = os.path.join(DATA_DIR, "allstate")
+COVTYPE_DIR = os.path.join(DATA_DIR, "covtype")
 
 TRAIN_SPARSE = "train_sparse.txt"
 TEST_SPARSE = "test_sparse.txt"

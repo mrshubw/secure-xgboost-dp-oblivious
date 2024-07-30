@@ -39,6 +39,24 @@ void Monitor::Stop(const std::string &name) {
   }
 }
 
+void Monitor::StartForce(std::string const &name) {
+    auto &stats = statistics_map_[name];
+    stats.timer.Start();
+#if defined(XGBOOST_USE_NVTX)
+    std::string nvtx_name = label_ + "::" + name;
+    stats.nvtx_id = nvtxRangeStartA(nvtx_name.c_str());
+#endif  // defined(XGBOOST_USE_NVTX)
+}
+
+void Monitor::StopForce(const std::string &name) {
+    auto &stats = statistics_map_[name];
+    stats.timer.Stop();
+    stats.count++;
+#if defined(XGBOOST_USE_NVTX)
+    nvtxRangeEnd(stats.nvtx_id);
+#endif  // defined(XGBOOST_USE_NVTX)
+}
+
 std::vector<Monitor::StatMap> Monitor::CollectFromOtherRanks() const {
   // Since other nodes might have started timers that this one haven't, so
   // we can't simply call all reduce.
@@ -133,6 +151,41 @@ void Monitor::Print() const {
     LOG(CONSOLE) << "======== Monitor: " << label_ << " ========";
     this->PrintStatistics(stat_map);
   }
+}
+
+void Monitor::PrintForce(std::string logfile) const {
+  // Create an ofstream (output file stream) object
+  std::fstream outfile;
+
+  // Open the file in write mode
+  outfile.open(logfile, std::ios::out|std::ios::app);
+  // Check if the file was opened successfully
+  if (!outfile) {
+      std::cerr << "Error opening file" << std::endl;
+      return;
+  }
+
+  StatMap stat_map;
+  for (auto const& kv : statistics_map_) {
+    stat_map[kv.first] = std::make_pair(
+        kv.second.count, std::chrono::duration_cast<std::chrono::microseconds>(
+            kv.second.timer.elapsed).count());
+  }
+  outfile << "======== Monitor: " << label_ << " ========"<<std::endl;
+  for (auto &kv : stat_map) {
+    if (kv.second.first == 0) {
+      outfile <<
+          "Timer for " << kv.first << " did not get stopped properly.";
+      continue;
+    }
+    outfile << kv.first << ": " << static_cast<double>(kv.second.second) / 1e+6
+                 << "s, " << kv.second.first << " calls @ "
+                 << kv.second.second
+                 << "us" << std::endl;
+  }
+
+  // Close the file
+  outfile.close();
 }
 
 

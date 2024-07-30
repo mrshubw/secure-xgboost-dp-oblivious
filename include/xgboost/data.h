@@ -23,6 +23,11 @@
 #include <utility>
 #include <vector>
 
+
+// #ifdef __ENCLAVE_OBLIVIOUS__
+#include "enclave/obl_primitives.h"
+// #endif
+
 namespace xgboost {
 // forward declare dmatrix.
 class DMatrix;
@@ -313,6 +318,30 @@ class SparsePage {
             Entry::CmpValue);
       }
     }
+  }
+
+  inline void Push(const Inst &inst){
+    auto& data_vec = data.HostVector();
+    auto& offset_vec = offset.HostVector();
+    // Store the starting point of the instance
+    offset_vec.push_back(offset_vec.back()+inst.size());
+    
+    // Append the instance data
+    for (bst_uint i = 0; i < inst.size(); ++i) {
+        data_vec.push_back(inst[i]);
+    }
+  }
+
+  inline void PushObliviousSrc(SparsePage& src, size_t i){
+    auto& dst_data_vec = data.HostVector();
+    auto& dst_offset_vec = offset.HostVector();
+    auto& src_data_vec = src.data.HostVector();
+    auto& src_offset_vec = src.offset.HostVector();
+    
+    size_t size = ObliviousArrayAccess(src_offset_vec.data(), i+1, src_offset_vec.size()) - ObliviousArrayAccess(src_offset_vec.data(), i, src_offset_vec.size());
+    dst_data_vec.resize(dst_data_vec.size()+size);
+    ObliviousArrayAccessBytes(dst_data_vec.data() + dst_offset_vec.back(), src_data_vec.data(), size*sizeof(Entry), i, src_data_vec.size()/size);
+    dst_offset_vec.push_back(dst_offset_vec.back()+size);
   }
 
   /*!

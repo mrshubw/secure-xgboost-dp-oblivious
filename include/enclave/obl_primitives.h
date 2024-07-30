@@ -14,7 +14,8 @@
 //----------------------------------------------------------------------------
 // Interface
 
-constexpr size_t CACHE_LINE_SIZE = 64;
+constexpr size_t CACHE_LINE_SIZE = 4096;
+// constexpr size_t CACHE_LINE_SIZE = 64;
 
 template <typename T>
 inline bool ObliviousLess(const T &x, const T &y);

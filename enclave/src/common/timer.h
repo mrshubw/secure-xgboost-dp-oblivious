@@ -55,16 +55,17 @@ struct Timer {
         std::cerr << "Error opening file" << std::endl;
         return;
     }
+    outfile<<"algorithm: ";
 #ifdef __ENCLAVE_OBLIVIOUS__
 #ifdef __ENCLAVE_DPOBLIVIOUS__
-    outfile<<"DO ";
+    outfile<<"DO\n";
 #else
-    outfile<<" O ";
+    outfile<<" O\n";
 #endif
 #else
-    outfile<<"NO ";
+    outfile<<"NO\n";
 #endif
-    outfile << label << "(s) " << ElapsedSeconds() << std::endl;
+    outfile << label << ElapsedSeconds() << std::endl;
 
     // Close the file
     outfile.close();
@@ -113,6 +114,9 @@ struct Monitor {
 
   /*! \brief Print all the statistics. */
   void Print() const;
+  void PrintForce(std::string logfile) const;
+  void StartForce(const std::string &name);
+  void StopForce(const std::string &name);
 
   void Init(std::string label) { this->label_ = label; }
   void Start(const std::string &name);

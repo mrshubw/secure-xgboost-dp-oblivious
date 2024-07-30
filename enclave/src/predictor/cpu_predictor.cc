@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <limits>
 #include <mutex>
+#include <thread>
 
 #include "../common/math.h"
 #include "../common/timer.h"
@@ -243,6 +244,7 @@ class CPUPredictor : public Predictor {
       PredictBatchKernel(SparsePageView<kUnroll>{&batch}, out_preds, model,
                          tree_begin, tree_end, &thread_temp_, &monitor_);
     }
+    std::cout << "num of tree nodes: "<< model.trees[0]->GetNodes().size() << std::endl;
     monitor_.Stop(__func__);
   }
 
@@ -270,88 +272,110 @@ class CPUPredictor : public Predictor {
     monitor_.Stop(__func__);
   }
 
-  /**
-   * 在原始数据中添加噪声数量的伪数据
-  */
-  DMatrix* AddPseudoSamples(DMatrix* in_fmat){
-    monitor_.Start(__func__);
+  void PredictOneTree(xgboost::SparsePage& in_page, std::vector<bst_float>& out_preds, RegTree& tree, RegTree::FVec& feat){
+    auto nsize = in_page.Size();
+    for (int i = 0; i < nsize; i++) {
+      feat.Fill(in_page[i]);
+      
+      int tid = tree.GetLeafIndex(feat);
+      out_preds[i] += tree[tid].LeafValue();
 
-    monitor_.Stop(__func__);
-    return in_fmat;
-  }
-
-  /**
-   * 对输入数据进行混洗
-  */
-  DMatrix* ShuffleSamples(DMatrix* in_fmat){
-    monitor_.Start(__func__);
-    xgboost::Entry buffer[1024];
-    for(int round_num=0; round_num<8; round_num++){
-      for (auto const& batch : in_fmat->GetBatches<SparsePage>()) {
-        auto nsize = batch.Size();
-        for (int i = 0; i < nsize; i++) {
-          // // 循环赋值
-          // for(int j = 0; j<batch[i].size(); j++){
-          //   buffer[j] = batch[i][j];
-          // }
-          // memcpy
-          memcpy(buffer, batch[i].data(), batch[i].size()*sizeof(xgboost::Entry));
-          // std::copy
-          // std::copy(batch[i].data(), batch[i].data()+batch[i].size(), buffer);
-        }
-      }
+      feat.Drop(in_page[i]);
     }
-
-    monitor_.Stop(__func__);
-    return in_fmat;
   }
+  // static void printNumbers(int start, int end) {
+  //   for (int i = start; i <= end; ++i) {
+  //       std::cout << i << " ";
+  //   }
+  //   std::cout << std::endl;
+  // }
+
+  // static void printLetters(char start, char end) {
+  //     for (char c = start; c <= end; ++c) {
+  //         std::cout << c << " ";
+  //     }
+  //     std::cout << std::endl;
+  // }
 
   /**
    * 将输入数据添加噪声后混洗，随后正常推断
   */
-  void PredictDMatrixByNoiseShuffle(DMatrix* p_fmat, std::vector<bst_float>* out_preds,
+  void PredictDMatrixDO(DMatrix* p_fmat, std::vector<bst_float>* out_preds,
                             gbm::GBTreeModel const& model, int32_t tree_begin,
                             int32_t tree_end){
-                              std::cout<<"PredictDMatrixByNoiseShuffle"<<std::endl;
-    monitor_.Start(__func__);
+    common::Monitor monitor1;
+    monitor1.Init("DO");
+    monitor1.StartForce(__func__);
+    //   #ifdef _OPENMP
+    // std::cout << "OpenMP is enabled. Version: " << _OPENMP << std::endl;
+    // #else
+    // std::cout << "OpenMP is not enabled." << std::endl;
+    // #endif
+    // std::thread t1(printNumbers, 1, 10); // Thread to print numbers
+    // std::thread t2(printLetters, 'a', 'z'); // Thread to print letters
 
-    DMatrix* noise_fmat;
-    noise_fmat = AddPseudoSamples(p_fmat);
-    DMatrix* shuffle_fmat;
-                              std::cout<<"PredictDMatrixByNoiseShuffle"<<std::endl;
-    // shuffle_fmat = ShuffleSamples(noise_fmat);
+    // // Wait for threads to finish
+    // t1.join();
+    // t2.join();
 
-    // std::cout<<"+++++++++++++++++++++++++++++++++++++++++++"<<std::endl;
-    // PredictDMatrixByTrees(shuffle_fmat, out_preds, model, tree_begin, tree_end);
-    // PredictDMatrix(shuffle_fmat, out_preds, model, tree_begin, tree_end);
     std::lock_guard<std::mutex> guard(lock_);
     const int threads = omp_get_max_threads();
     InitThreadTemp(threads, model.learner_model_param->num_feature,
                    &this->thread_temp_);
-                              std::cout<<"PredictDMatrixByNoiseShuffle"<<std::endl;
-    Shuffler& shuffler = Shuffler::getInstance();
-    for (auto const& batch : p_fmat->GetBatches<SparsePage>()) {
+    for (auto & batch : p_fmat->GetBatches<SparsePage>()) {
       CHECK_EQ(out_preds->size(),
                p_fmat->Info().num_row_ *
                    model.learner_model_param->num_output_group);
       size_t constexpr kUnroll = 8;
-      std::vector<int> shuffle_index;
-      shuffle_index.resize(batch.Size());
-      std::vector<bst_float> shuffle_preds;
-      shuffle_preds.resize(batch.Size());
-      std::cout<<"for loop"<<std::endl;
-      xgboost::SparsePage* temp = shuffler.shuffleForwardRandom(batch, shuffle_index, &monitor_);
-      std::cout<<"for loop1"<<std::endl;
-      PredictBatchKernel(SparsePageView<kUnroll>{temp}, &shuffle_preds, model,
-                         tree_begin, tree_end, &thread_temp_, &monitor_);
-      for (size_t i = 0; i < shuffle_index.size(); i++)
+
+      double epsilon = 0.1;
+      double delta = 0.00001;
+      logStr("/home/hgtc/secure-xgboost-dp-oblivious/do-enhanced/data/time.log", "epsilon: ", epsilon);
+      bool nosie_by_trees = false;
+      if (nosie_by_trees)
       {
-        (*out_preds)[shuffle_index[i]] += shuffle_preds[i];
+        int32_t const num_group = model.learner_model_param->num_output_group;
+        std::cout<<"num_group: "<<num_group<<std::endl;
+        for (int gid = 0; gid < num_group; ++gid) {
+          // #pragma omp parallel for num_threads(5)
+          for (size_t i = tree_begin; i < tree_end; ++i) {
+            if (model.tree_info[i] == gid) {
+              // std::cout << "Thread " << omp_get_thread_num() << " processing element " << i << std::endl;
+              DOoperator do_operator(epsilon/(tree_end-tree_begin), delta/(tree_end-tree_begin), 1);
+              do_operator.Preprocess(batch, model.trees[0]->GetNodes().size(), &monitor1);
+
+              monitor1.StartForce("PredictNO");
+              PredictOneTree(do_operator.shuffle_page, do_operator.shuffle_preds, *model.trees[i], thread_temp_[0]);
+              monitor1.StopForce("PredictNO");
+
+              do_operator.PostProcessAdd(out_preds, &monitor1);
+            }
+          }
+        }
+      }else
+      {
+        int32_t const num_group = model.learner_model_param->num_output_group;
+        std::cout<<"num_group: "<<num_group<<std::endl;
+        // std::cout<<"batch size: "<<batch.Size()<<std::endl;
+        // std::cout<<"batch data size: "<<batch.data.Size() * sizeof(xgboost::Entry)<<std::endl;
+        
+        DOoperator do_operator(epsilon, delta, 1);
+        do_operator.Preprocess(batch, model.trees[0]->GetNodes().size(), &monitor1, (tree_end-tree_begin), num_group);
+        
+        monitor1.StartForce("PredictNO");
+        PredictBatchKernel(SparsePageView<kUnroll>{&do_operator.shuffle_page}, &(do_operator.shuffle_preds), model,
+                          tree_begin, tree_end, &thread_temp_, &monitor_);
+        monitor1.StopForce("PredictNO");
+        std::cout<<"shuffle_preds: "<<do_operator.shuffle_preds.size()<<std::endl;
+        do_operator.PostProcess(out_preds, &monitor1);
+        std::cout<<"out_preds: "<<out_preds->size()<<std::endl;
+        std::cout<<"shuffle_preds: "<<do_operator.shuffle_preds.size()<<std::endl;
       }
       
     }
 
-    monitor_.Stop(__func__);
+    monitor1.StopForce(__func__);
+    monitor1.PrintForce("/home/hgtc/secure-xgboost-dp-oblivious/do-enhanced/data/time.log");
   }
 #endif
 
@@ -436,32 +460,21 @@ class CPUPredictor : public Predictor {
     // be called when booster.predict in python
     if (beg_version < end_version) {
 #ifdef __ENCLAVE_DPOBLIVIOUS__
-      this->PredictDMatrixByNoiseShuffle(dmat, &out_preds->HostVector(), model,
+      this->PredictDMatrixDO(dmat, &out_preds->HostVector(), model,
                            beg_version * output_groups,
                            end_version * output_groups);
 
+      // 检测DO算法
       // std::vector<bst_float> out_check;
       // out_check.resize(out_preds->HostVector().size(), 0);
       // this->PredictDMatrix(dmat, &out_check, model,
       //                      beg_version * output_groups,
       //                      end_version * output_groups);
 
-      // std::cout<<"======================================";
-      // for(bst_float& temp: out_preds->HostVector()){
-      //   std::cout<<temp<<" ";
-      // }
-      // std::cout<<std::endl;
-      
-      // for(bst_float& temp: out_check){
-      //   std::cout<<temp<<" ";
-      // }
-      // std::cout<<std::endl;
-
       // for (size_t i = 0; i < out_check.size(); i++)
       // {
       //   CHECK_EQ(out_preds->HostVector()[i], out_check[i])<<out_preds->HostVector()[i]<<","<< out_check[i];
       // }
-      
       
 #else
       this->PredictDMatrix(dmat, &out_preds->HostVector(), model,
@@ -480,9 +493,9 @@ class CPUPredictor : public Predictor {
 
     monitor_.Stop(__func__);
     monitor_.Print();
-    // std::cout<<"PredictBatch cost: "<<monitor_.GetCost(__func__).second<<std::endl;;
+    // std::cout<<"PredictBatch cost: "<<monitor_.GetCost(__func__).second<<std::endl;
     timer.Stop();
-    timer.PrintElapsed("PredictBatch", "/home/hgtc/secure-xgboost-dp-oblivious/do-enhanced/data/time.log");
+    timer.PrintElapsed("PredictBatch: ", "/home/hgtc/secure-xgboost-dp-oblivious/do-enhanced/data/time.log");
   }
 
   template <typename Adapter>
