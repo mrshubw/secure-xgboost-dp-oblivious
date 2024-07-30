@@ -328,7 +328,7 @@ class CPUPredictor : public Predictor {
                    model.learner_model_param->num_output_group);
       size_t constexpr kUnroll = 8;
 
-      double epsilon = 0.1;
+      double epsilon = 1.0;
       double delta = 0.00001;
       logStr("/home/hgtc/secure-xgboost-dp-oblivious/do-enhanced/data/time.log", "epsilon: ", epsilon);
       bool nosie_by_trees = false;

@@ -1,3 +1,30 @@
+# DOXIE
+
+DOXIE is a secure XGBoost inference system that strikes a balance between access pattern protection and concrete efficiency. DOXIE satisfies a security definition called differentially oblivious (DO) that originates from the celebrated notion of differential privacy. We implemented the DOXIE algorithm based on the Secure XGBoost code.
+
+DOXIE's main test code is located in the `./do-enhanced` folder.
+
+The main implementation of the DOXIE algorithm can be found in the file `./include/enclave/dpobl_operator.h` and `./enclave/src/predictor/cpu_predictor.cc`
+
+## Test Procedure
+* Install.
+
+    see [Installation](#installation)
+
+* Build XGBoost with DOXIE and install the Python package.
+
+    ```sh
+    cd do-enhanced
+    ./build_project.sh
+    ```
+* test using the test code in `./do-enhanced` folder.
+
+    ```sh
+    cd do-enhanced
+    python3 predict.py
+    ./batch_script.sh # run the batch test
+    ```
+
 # Secure XGBoost
 
 [![Build Status](https://travis-ci.org/mc2-project/secure-xgboost.svg?branch=master)](https://travis-ci.org/mc2-project/secure-xgboost)
