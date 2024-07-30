@@ -4,6 +4,10 @@
 #include <cstdint>
 #include <cstring>
 #include <type_traits>
+#include <iostream>
+#include <fstream>
+#include <random>
+#include <vector>
 
 #include "enclave/obl_primitives.h"
 #include "xgboost/base.h"
@@ -610,69 +614,408 @@ class Shuffler {
     return instance;
   }
 
-  xgboost::SparsePage* shuffleForwardRandom(
-      xgboost::SparsePage const& in_page, std::vector<int>& shuffle_index) {
+  void shuffleForwardRandom(xgboost::SparsePage const& in_page, xgboost::SparsePage& out_page, std::vector<int>& shuffle_index) {
     auto& in_data = in_page.data.HostVector();
     auto& in_offset = in_page.offset.HostVector();
-    auto out_page = new xgboost::SparsePage;
-    auto& out_data = out_page->data.HostVector();
-    auto& out_offset = out_page->offset.HostVector();
-    out_page->SetBaseRowId(in_page.base_rowid);
+    auto& out_data = out_page.data.HostVector();
+    auto& out_offset = out_page.offset.HostVector();
+    out_page.SetBaseRowId(in_page.base_rowid);
     out_data.resize(in_data.size());
     out_offset.resize(1, 0);
 
-    // for (size_t i = 0; i < in_page.Size(); i++)
-    // {
-    //   // std::cout<<"read "<<i<<" from sparse page.............."<<std::endl;
-    //   root.pull(in_page[i]);
-    // }
+    // std::cout<<"shuffle point"<<std::endl;
+
     root.read(in_page);
-    root.write(*out_page, shuffle_index);
-    // for (size_t i = 0; i < out_preds.size(); i++)
+    // std::cout<<"shuffle point"<<std::endl;
+    root.write(out_page, shuffle_index);
+    // std::cout<<"shuffle point"<<std::endl;
+    // for (size_t i = 0; i < shuffle_index.size(); i++)
     // {
-    //   std::cout<<out_preds[i]<<" ";
-    // }
-    // std::cout<<std::endl;
-    
-    // for (size_t i = 0; i < out_page->Size(); i++)
-    // {
-    //   root.push(*out_page);
+    //   std::cout<<"index: "<<shuffle_index[i]<<std::endl;
     // }
     
-    return out_page;
   };
-  // xgboost::SparsePage* shuffleForwardRandom(
-  //     xgboost::SparsePage const& in_page) {
-  //   auto& in_data = in_page.data.HostVector();
-  //   auto& in_offset = in_page.offset.HostVector();
-  //   auto out_page = new xgboost::SparsePage;
-  //   auto& out_data = out_page->data.HostVector();
-  //   auto& out_offset = out_page->offset.HostVector();
-  //   out_page->SetBaseRowId(in_page.base_rowid);
-  //   out_data.resize(in_data.size());
-  //   out_offset.resize(in_offset.size());
-  //   size_t top{0};
-  //   out_offset[0] = 0;
-  //   for (size_t i = 0; i < in_page.Size(); i++) {
-  //     auto inst = in_page[i];
-  //     memcpy(out_data.data() + top, inst.data(),
-  //            inst.size() * sizeof(xgboost::Entry));
-  //     top += inst.size();
-  //     out_offset[i + 1] = top;
-  //   }
-  //   // std::cout<<"+++++++++++++++"<<std::endl;
-  //   // memcpy(out_offset.data(), in_offset.data(),
-  //   // in_offset.size()*sizeof(xgboost::bst_row_t)); memcpy(out_data.data(),
-  //   // in_data.data(), in_data.size()*sizeof(xgboost::Entry));
+
+  // template <typename Monitor>
+  // xgboost::SparsePage* shuffleForwardRandom(xgboost::SparsePage const& in_page, std::vector<int>& shuffle_index,
+  //                                           Monitor* monitor_) {
+  //   monitor_->Start(__func__);
+  //   xgboost::SparsePage* out_page = shuffleForwardRandom(in_page, shuffle_index);
+  //   monitor_->Stop(__func__);
   //   return out_page;
   // };
+};
+
+
+class DummySamples: public xgboost::SparsePage
+{
+private:
+  int num_samples;
+  static std::map<int, std::shared_ptr<DummySamples>> instances_;
+public:
+  DummySamples(int num_samples, const xgboost::SparsePage::Inst& inst){
+    for (size_t i = 0; i < num_samples; i++)
+    {
+      this->Push(inst);
+    }
+    
+  }
+  ~DummySamples(){}
+
+  static std::shared_ptr<DummySamples> getInstance(int num_samples, const xgboost::SparsePage::Inst& inst){
+    auto it = instances_.find(num_samples);
+    if (it == instances_.end()) {
+        std::shared_ptr<DummySamples> instance(new DummySamples(num_samples, inst));
+        instances_[num_samples] = instance;
+        return instance;
+    }
+    return it->second;
+  }
+  
+};
+
+// Oblivious Swap
+template <typename T>
+void obliviousSwap(T& value1, T& value2, bool pred) {
+    T temp = value1;
+    value1 = ObliviousChoose(pred, value2, value1);
+    value2 = ObliviousChoose(pred, temp, value2);
+}
+
+
+template <typename T, typename Ty=T>
+class BitonicSorter {
+public:
+    BitonicSorter(std::vector<T>& data, bool ascending = true, bool oblivious = true)
+        : arr(data), ascending(ascending), oblivious(oblivious) {
+        originalSize_ = arr.size();
+        paddedSize_ = nextPowerOf2(originalSize_);
+    }
+
+    void sort() {
+        arr.resize(paddedSize_, std::numeric_limits<T>::max());
+        #pragma omp parallel
+        {
+            #pragma omp single
+            {
+                bitonicSort(0, arr.size(), ascending);
+            }
+        }
+        arr.resize(originalSize_);
+    }
+
+    void reorder(std::vector<Ty>& data){
+        reorder_data = &data;
+        data.resize(paddedSize_, std::numeric_limits<Ty>::max());
+        sort();
+    }
+
+    double sortAndMeasureTime() {
+        auto start = std::chrono::high_resolution_clock::now();
+        sort();
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed = end - start;
+        return elapsed.count();
+    }
+
+private:
+    std::vector<T>& arr;
+    bool ascending;
+    bool oblivious;
+    int paddedSize_;
+    int originalSize_;
+    std::vector<Ty>* reorder_data = nullptr;
+
+    void compareAndSwap(int i, int j, bool dir) {
+      bool pred = dir == (arr[i] > arr[j]);
+      if (oblivious)
+      {
+        obliviousSwap(arr[i], arr[j], pred);
+        if (reorder_data!=nullptr)
+        {
+            obliviousSwap((*reorder_data)[i], (*reorder_data)[j], pred);
+        }
+      }else
+      {
+        if (pred) {
+            std::swap(arr[i], arr[j]);
+            if (reorder_data!=nullptr)
+            {
+                std::swap((*reorder_data)[i], (*reorder_data)[j]);
+            }
+        }
+      }
+    }
+
+    void bitonicMerge(int low, int cnt, bool dir) {
+        if (cnt > 1) {
+            int k = cnt / 2;
+            #pragma omp parallel for schedule(dynamic)
+            for (int i = low; i < low + k; i++) {
+                compareAndSwap(i, i + k, dir);
+            }
+            #pragma omp task
+            bitonicMerge(low, k, dir);
+            #pragma omp task
+            bitonicMerge(low + k, k, dir);
+            #pragma omp taskwait
+        }
+    }
+
+    void bitonicSort(int low, int cnt, bool dir) {
+        if (cnt > 1) {
+            int k = cnt / 2;
+            #pragma omp task
+            bitonicSort(low, k, true);
+            #pragma omp task
+            bitonicSort(low + k, k, false);
+            #pragma omp taskwait
+            bitonicMerge(low, cnt, dir);
+        }
+    }
+
+    int nextPowerOf2(int n) {
+        int p = 1;
+        while (p < n) {
+            p <<= 1;
+        }
+        return p;
+    }
+};
+
+// Set arr[i] += val
+template <typename T>
+inline void obliviousArrayElementAdd(T *arr, size_t i, size_t n, const T &val){
+  size_t nbytes = sizeof(T);
+  size_t step = nbytes < CACHE_LINE_SIZE ? CACHE_LINE_SIZE / nbytes : 1;
+  T temp;
+  i = ObliviousChoose(i<n, i, i+step);
+  for (size_t j = 0; j < n; j += step) {
+    bool cond = ObliviousEqual(j / step, i / step);
+    int pos = ObliviousChoose(cond, i, j);
+    void *dst_pos = (char *)(arr) + pos * nbytes;
+    temp = arr[pos] + val;
+    obl::ObliviousBytesAssign(cond, nbytes, &temp, dst_pos, dst_pos);
+  }
+}
+
+
+
+// 计算标准正态分布的分位数（近似算法）
+inline double inverseCDF(double p) {
+  // 使用近似公式
+  if (p < 0.5) {
+      return -std::sqrt(-2.0 * std::log(p));
+  } else {
+      return std::sqrt(-2.0 * std::log(1.0 - p));
+  }
+}
+
+inline double calculateSigma(double epsilon, double delta, double sensitivity) {
+  double c = std::sqrt(2 * std::log(1.25 / delta));
+  return c * sensitivity / epsilon;
+}
+
+inline double calculateMean(double sigma, double delta) {
+  double z = inverseCDF(delta);
+  return -sigma * z;
+}
+
+class DOoperator
+{
+private:
+  double epsilon;
+  double delta;
+  double sensitivity;
+  double sigma;
+  double mean;
+public:
+  xgboost::SparsePage shuffle_page;
+  std::vector<int> shuffle_index;
+  std::vector<xgboost::bst_float> shuffle_preds;
+
+  DOoperator(/* args */):DOoperator(1, 0.00001, 1){};
+  DOoperator(double epsilon, double delta, double sensitivity):epsilon(epsilon),delta(delta),sensitivity(sensitivity){
+    sigma = calculateSigma(epsilon, delta, sensitivity);
+    mean = calculateMean(sigma, delta);
+    // std::cout<<"sigma: "<<sigma<<" mean: "<<mean<<std::endl;
+  };
+  ~DOoperator(){};
+
+  void clear(){
+
+  }
+
+  // Function to generate an n-dimensional array with elements from a standard normal distribution
+  inline std::vector<int> generate_normal_distribution_array(int size) {
+    std::vector<int> array(size);
+
+    // Seed with a real random value, if available
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
+    // Standard normal distribution
+    std::normal_distribution<> d(mean, sigma);
+
+    for (int i = 0; i < size; ++i) {
+        // Sample from the distribution and convert to positive integer
+        array[i] = std::abs(static_cast<int>(std::round(d(gen))));
+    }
+
+    return array;
+  }
+  
+  void ProduceDummySamples(xgboost::SparsePage& dummySamples, xgboost::SparsePage& in_page, size_t samples_num){
+      for (size_t i = 0; i < samples_num; i++)
+      {
+        dummySamples.Push(in_page[0]);
+      }
+  }
+
+  /**
+   * 在原始数据中添加噪声数量的伪数据
+  */
+  void AddDummy(xgboost::SparsePage& out_page, xgboost::SparsePage& dummySamples){
+    std::vector<int> noise_vec = generate_normal_distribution_array(dummySamples.Size());
+
+    // for (size_t i = 0; i < dummySamples.Size(); i++)
+    // {
+    //   for (size_t j = 0; j < noise_vec[i]; j++)
+    //   {
+    //     out_page.PushObliviousSrc(dummySamples, i);
+    //   }
+    // }
+    size_t did=0;
+    int noise_value=0;
+    int count(0);
+    while (did<dummySamples.Size())
+    {
+      out_page.PushObliviousSrc(dummySamples, did);
+      count++;
+      noise_value = ObliviousArrayAccess(noise_vec.data(), did, noise_vec.size());
+      bool next = count>=noise_value;
+      did = ObliviousChoose(next, did+1, did);
+      count = ObliviousChoose(next, 0, count);
+    }
+    
+  }
 
   template <typename Monitor>
-  xgboost::SparsePage* shuffleForwardRandom(xgboost::SparsePage const& in_page, std::vector<int>& shuffle_index,
-                                            Monitor* monitor_) {
-    monitor_->Start(__func__);
-    xgboost::SparsePage* out_page = shuffleForwardRandom(in_page, shuffle_index);
-    monitor_->Stop(__func__);
-    return out_page;
-  };
+  void Preprocess(xgboost::SparsePage& in_page, size_t tree_nodes_num, Monitor* monitor_ = nullptr, int trees_num=1, int num_groups=1){
+    size_t samples_num = (tree_nodes_num/2)/200;
+    std::cout<<"trees_num: "<<trees_num<<" samples_num: "<<samples_num<<std::endl;
+    xgboost::SparsePage noise_page;
+    noise_page.Push(in_page);
+    for (size_t i = 0; i < trees_num; i++)
+    {
+      xgboost::SparsePage dummySamples;
+      ProduceDummySamples(dummySamples, in_page, samples_num);
+
+      if (monitor_ != nullptr) monitor_->StartForce("AddDummy");
+      AddDummy(noise_page, dummySamples);
+      if (monitor_ != nullptr) monitor_->StopForce("AddDummy");
+    }
+    
+
+    if (monitor_ != nullptr) monitor_->StartForce("shuffle");
+    shuffle_index.resize(noise_page.Size());
+    shuffle_preds.resize(noise_page.Size() * num_groups);
+    std::cout<<"noise_page.Size(): "<<noise_page.Size()<<std::endl;
+    Shuffler& shuffler = Shuffler::getInstance();
+    shuffler.shuffleForwardRandom(noise_page, shuffle_page, shuffle_index);
+    if (monitor_ != nullptr) monitor_->StopForce("shuffle");
+  }
+
+  template <typename Monitor>
+  void PostProcessAdd(std::vector<xgboost::bst_float>* out_preds, Monitor* monitor_ = nullptr){
+    if (monitor_ != nullptr) monitor_->StartForce("PostProcess");
+    // for (size_t i = 0; i < shuffle_index.size(); i++)
+    // {
+    //   if (shuffle_index[i]>=out_preds->size())
+    //   {
+    //     continue;
+    //   }
+    //   (*out_preds)[shuffle_index[i]] += shuffle_preds[i];
+    // }
+
+
+    for (size_t i = 0; i < shuffle_index.size(); i++)
+    {
+      obliviousArrayElementAdd(out_preds->data(), shuffle_index[i], out_preds->size(), shuffle_preds[i]);
+    }
+
+
+    // BitonicSorter<int, xgboost::bst_float> sorter(shuffle_index, true, true);
+    // sorter.reorder(shuffle_preds);
+    
+    // for (size_t i = 0; i < out_preds->size(); i++)
+    // {
+    //   (*out_preds)[i] += shuffle_preds[i];
+    // }
+    
+    if (monitor_ != nullptr) monitor_->StopForce("PostProcess");
+  }
+
+  template <typename Monitor>
+  void PostProcess(std::vector<xgboost::bst_float>* out_preds, Monitor* monitor_ = nullptr){
+    if (monitor_ != nullptr) monitor_->StartForce("PostProcess");
+
+    int num_groups = shuffle_preds.size() / shuffle_index.size();
+
+    std::cout<<"shuffle_index.size(): "<<shuffle_index.size()<<" num_groups: "<<num_groups<<std::endl;
+    for (size_t i = 0; i < shuffle_index.size(); i++)
+    {
+      // if (shuffle_index[i]>=out_preds->size()/num_groups)
+      // {
+      //   continue;
+      // }
+
+      int n = out_preds->size()/num_groups;
+      int index = ObliviousChoose<int>(shuffle_index[i]<n, shuffle_index[i], shuffle_index[i]+CACHE_LINE_SIZE);
+
+      ObliviousArrayAssignBytes(out_preds->data(), shuffle_preds.data() + i * num_groups, num_groups*sizeof(xgboost::bst_float), index, n);
+    }
+    
+    if (monitor_ != nullptr) monitor_->StopForce("PostProcess");
+  }
 };
+
+
+inline void logStr(std::string logfile, std::string outStr){
+
+  // Create an ofstream (output file stream) object
+  std::fstream outfile;
+
+  // Open the file in write mode
+  outfile.open(logfile, std::ios::out|std::ios::app);
+  // Check if the file was opened successfully
+  if (!outfile) {
+      std::cerr << "Error opening file" << std::endl;
+      return;
+  }
+
+  outfile<<outStr;
+  
+  // Close the file
+  outfile.close();
+}
+
+template <typename VauleType>
+inline void logStr(std::string logfile, std::string outStr, VauleType value){
+
+  // Create an ofstream (output file stream) object
+  std::fstream outfile;
+
+  // Open the file in write mode
+  outfile.open(logfile, std::ios::out|std::ios::app);
+  // Check if the file was opened successfully
+  if (!outfile) {
+      std::cerr << "Error opening file" << std::endl;
+      return;
+  }
+
+  outfile<<outStr<<value<<std::endl;
+  
+  // Close the file
+  outfile.close();
+}

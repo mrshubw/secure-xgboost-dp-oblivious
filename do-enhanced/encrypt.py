@@ -21,4 +21,4 @@ def encrypt_file(data_dir, file_list, key_file=KEY_FILE, verbose=True):
     if verbose:
         print("Data encrypted.")
 
-encrypt_file(ALLSTATE_DIR, ["data1000.txt", "data10000.txt", "data100000.txt"])
+encrypt_file(COVTYPE_DIR, ["data1000.txt", "data10000.txt", "data100000.txt"])
