@@ -562,20 +562,43 @@ class Shuffler {
     
     // 从孩子bucket中读取数据
     void pullFromChildren(){
+      // for (size_t i = 0; i < capability_; i++)
+      // {
+      //   push(children_[i]->pop(true));
+      // }
+      
+      std::vector<size_t> indices(capability_);
+      for (size_t i = 0; i < capability_; i++) {
+        indices[i] = i;
+      }
+      std::random_device rd;
+      std::mt19937 g(rd());
+      std::shuffle(indices.begin(), indices.end(), g);
       for (size_t i = 0; i < capability_; i++)
       {
-        push(children_[i]->pop(true));
+        push(children_[indices[i]]->pop(true));
       }
-      
     }
     // 将bucket中的数据全部写入到孩子bucket中
     void pushToChildren() {
       createChildren(capability_);
-      for (size_t i = 0; i < capability_; i++)
-      {
-        children_[i]->push(pop(true));
+
+      // for (size_t i = 0; i < capability_; i++)
+      // {
+      //   children_[i]->push(pop(true));
+      // }
+      // // bucket.clear();
+
+      std::vector<size_t> indices(capability_);
+      for (size_t i = 0; i < capability_; i++) {
+        indices[i] = i;
       }
-      // bucket.clear();
+      std::random_device rd;
+      std::mt19937 g(rd());
+      std::shuffle(indices.begin(), indices.end(), g);
+      for (size_t i = 0; i < capability_; i++) {
+        children_[indices[i]]->push(pop(true));
+      }
     }
 
     void read(xgboost::SparsePage const & in_page){

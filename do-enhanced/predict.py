@@ -77,6 +77,6 @@ if __name__ == "__main__":
     # main()
 
     # predict_all(dataset="allstate", max_depth_list=range(3,11), num_rounds_list=[5], data_size_list=[1000, 10000, 100000])
-    predict_all(dataset="covtype", max_depth_list=[2, 3, 4, 5, 6, 7, 8, 9, 10], num_rounds_list=[40], data_size_list=[1000])
+    predict_all(dataset="higgs", max_depth_list=[2, 3, 4, 5, 6, 7, 8, 9], num_rounds_list=[20], data_size_list=[10000])
 # [5, 10, 20, 40]
 # [2, 3, 4, 5, 6, 7, 8, 9, 10]
