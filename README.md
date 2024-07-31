@@ -21,6 +21,7 @@ The main implementation of the DOXIE algorithm can be found in the file `./inclu
 
     ```sh
     cd do-enhanced
+    python3 train.py
     python3 predict.py
     ./batch_script.sh # run the batch test
     ```
