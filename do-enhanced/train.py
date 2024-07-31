@@ -48,7 +48,7 @@ def train_multi_model(data_dir, max_depth_list, num_rounds_list, params):
 
 if __name__ == "__main__":
     initialize_xgboost()
-    dataset = "covtype"
+    dataset = "higgs"
     # Set parameters for XGBoost
     params_covtype = {
         'objective': 'multi:softmax',  # or 'multi:softprob'
@@ -81,5 +81,5 @@ if __name__ == "__main__":
             }
     params = {"higgs": params_higgs, "allstate": params_allstate, "covtype": params_covtype}
     data_dir = os.path.join(DATA_DIR, dataset)
-    train_multi_model(data_dir, max_depth_list=[10], num_rounds_list=[40], params=params[dataset])
+    train_multi_model(data_dir, max_depth_list=[2, 3, 4, 5, 6, 7, 8, 9], num_rounds_list=[20], params=params[dataset])
 
