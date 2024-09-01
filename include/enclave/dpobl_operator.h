@@ -934,21 +934,23 @@ public:
       xgboost::SparsePage dummySamples;
       ProduceDummySamples(dummySamples, in_page, samples_num);
 
+      // add dummy
       if (monitor_ != nullptr) monitor_->StartForce("AddDummy");
       AddDummy(noise_page, dummySamples);
       if (monitor_ != nullptr) monitor_->StopForce("AddDummy");
     }
     
-
+    // shuffle
     if (monitor_ != nullptr) monitor_->StartForce("shuffle");
     shuffle_index.resize(noise_page.Size());
     shuffle_preds.resize(noise_page.Size() * num_groups);
-    std::cout<<"noise_page.Size(): "<<noise_page.Size()<<std::endl;
+    // std::cout<<"noise_page.Size(): "<<noise_page.Size()<<std::endl;
     Shuffler& shuffler = Shuffler::getInstance();
     shuffler.shuffleForwardRandom(noise_page, shuffle_page, shuffle_index);
     if (monitor_ != nullptr) monitor_->StopForce("shuffle");
   }
 
+  // another method of post process, deprecated
   template <typename Monitor>
   void PostProcessAdd(std::vector<xgboost::bst_float>* out_preds, Monitor* monitor_ = nullptr){
     if (monitor_ != nullptr) monitor_->StartForce("PostProcess");

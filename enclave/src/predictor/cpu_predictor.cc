@@ -283,19 +283,6 @@ class CPUPredictor : public Predictor {
       feat.Drop(in_page[i]);
     }
   }
-  // static void printNumbers(int start, int end) {
-  //   for (int i = start; i <= end; ++i) {
-  //       std::cout << i << " ";
-  //   }
-  //   std::cout << std::endl;
-  // }
-
-  // static void printLetters(char start, char end) {
-  //     for (char c = start; c <= end; ++c) {
-  //         std::cout << c << " ";
-  //     }
-  //     std::cout << std::endl;
-  // }
 
   /**
    * 将输入数据添加噪声后混洗，随后正常推断
@@ -306,17 +293,6 @@ class CPUPredictor : public Predictor {
     common::Monitor monitor1;
     monitor1.Init("DO");
     monitor1.StartForce(__func__);
-    //   #ifdef _OPENMP
-    // std::cout << "OpenMP is enabled. Version: " << _OPENMP << std::endl;
-    // #else
-    // std::cout << "OpenMP is not enabled." << std::endl;
-    // #endif
-    // std::thread t1(printNumbers, 1, 10); // Thread to print numbers
-    // std::thread t2(printLetters, 'a', 'z'); // Thread to print letters
-
-    // // Wait for threads to finish
-    // t1.join();
-    // t2.join();
 
     std::lock_guard<std::mutex> guard(lock_);
     const int threads = omp_get_max_threads();
@@ -331,46 +307,46 @@ class CPUPredictor : public Predictor {
       double epsilon = 1.0;
       double delta = 0.00001;
       logStr("/home/hgtc/secure-xgboost-dp-oblivious/do-enhanced/data/time.log", "epsilon: ", epsilon);
-      bool nosie_by_trees = false;
-      if (nosie_by_trees)
-      {
-        int32_t const num_group = model.learner_model_param->num_output_group;
-        std::cout<<"num_group: "<<num_group<<std::endl;
-        for (int gid = 0; gid < num_group; ++gid) {
-          // #pragma omp parallel for num_threads(5)
-          for (size_t i = tree_begin; i < tree_end; ++i) {
-            if (model.tree_info[i] == gid) {
-              // std::cout << "Thread " << omp_get_thread_num() << " processing element " << i << std::endl;
-              DOoperator do_operator(epsilon/(tree_end-tree_begin), delta/(tree_end-tree_begin), 1);
-              do_operator.Preprocess(batch, model.trees[0]->GetNodes().size(), &monitor1);
+      // bool nosie_by_trees = false;
+      // if (nosie_by_trees)
+      // {
+      //   int32_t const num_group = model.learner_model_param->num_output_group;
+      //   std::cout<<"num_group: "<<num_group<<std::endl;
+      //   for (int gid = 0; gid < num_group; ++gid) {
+      //     // #pragma omp parallel for num_threads(5)
+      //     for (size_t i = tree_begin; i < tree_end; ++i) {
+      //       if (model.tree_info[i] == gid) {
+      //         // std::cout << "Thread " << omp_get_thread_num() << " processing element " << i << std::endl;
+      //         DOoperator do_operator(epsilon/(tree_end-tree_begin), delta/(tree_end-tree_begin), 1);
+      //         do_operator.Preprocess(batch, model.trees[0]->GetNodes().size(), &monitor1);
 
-              monitor1.StartForce("PredictNO");
-              PredictOneTree(do_operator.shuffle_page, do_operator.shuffle_preds, *model.trees[i], thread_temp_[0]);
-              monitor1.StopForce("PredictNO");
+      //         monitor1.StartForce("PredictNO");
+      //         PredictOneTree(do_operator.shuffle_page, do_operator.shuffle_preds, *model.trees[i], thread_temp_[0]);
+      //         monitor1.StopForce("PredictNO");
 
-              do_operator.PostProcessAdd(out_preds, &monitor1);
-            }
-          }
-        }
-      }else
-      {
-        int32_t const num_group = model.learner_model_param->num_output_group;
-        std::cout<<"num_group: "<<num_group<<std::endl;
-        // std::cout<<"batch size: "<<batch.Size()<<std::endl;
-        // std::cout<<"batch data size: "<<batch.data.Size() * sizeof(xgboost::Entry)<<std::endl;
-        
-        DOoperator do_operator(epsilon, delta, 1);
-        do_operator.Preprocess(batch, model.trees[0]->GetNodes().size(), &monitor1, (tree_end-tree_begin), num_group);
-        
-        monitor1.StartForce("PredictNO");
-        PredictBatchKernel(SparsePageView<kUnroll>{&do_operator.shuffle_page}, &(do_operator.shuffle_preds), model,
-                          tree_begin, tree_end, &thread_temp_, &monitor_);
-        monitor1.StopForce("PredictNO");
-        std::cout<<"shuffle_preds: "<<do_operator.shuffle_preds.size()<<std::endl;
-        do_operator.PostProcess(out_preds, &monitor1);
-        std::cout<<"out_preds: "<<out_preds->size()<<std::endl;
-        std::cout<<"shuffle_preds: "<<do_operator.shuffle_preds.size()<<std::endl;
-      }
+      //         do_operator.PostProcessAdd(out_preds, &monitor1);
+      //       }
+      //     }
+      //   }
+      // }else
+      // {
+      // }
+      int32_t const num_group = model.learner_model_param->num_output_group;
+      // std::cout<<"num_group: "<<num_group<<std::endl;
+      // std::cout<<"batch size: "<<batch.Size()<<std::endl;
+      // std::cout<<"batch data size: "<<batch.data.Size() * sizeof(xgboost::Entry)<<std::endl;
+      
+      DOoperator do_operator(epsilon, delta, 1);
+      do_operator.Preprocess(batch, model.trees[0]->GetNodes().size(), &monitor1, (tree_end-tree_begin), num_group);
+      
+      monitor1.StartForce("PredictNO");
+      PredictBatchKernel(SparsePageView<kUnroll>{&do_operator.shuffle_page}, &(do_operator.shuffle_preds), model,
+                        tree_begin, tree_end, &thread_temp_, &monitor_);
+      monitor1.StopForce("PredictNO");
+      // std::cout<<"shuffle_preds: "<<do_operator.shuffle_preds.size()<<std::endl;
+      do_operator.PostProcess(out_preds, &monitor1);
+      // std::cout<<"out_preds: "<<out_preds->size()<<std::endl;
+      // std::cout<<"shuffle_preds: "<<do_operator.shuffle_preds.size()<<std::endl;
       
     }
 
@@ -409,6 +385,18 @@ class CPUPredictor : public Predictor {
       std::fill(out_preds_h.begin(), out_preds_h.end(),
                 model.learner_model_param->base_score);
     }
+  }
+
+  void CheckDOAlgorithm(CPUPredictor* predictor, DMatrix* dmat, std::vector<bst_float>* out_preds, const gbm::GBTreeModel& model, uint32_t beg_version, uint32_t end_version, int output_groups) {
+    std::vector<bst_float> out_check;
+    out_check.resize(out_preds->size(), 0);
+    predictor->PredictDMatrix(dmat, &out_check, model, beg_version * output_groups, end_version * output_groups);
+
+    for (size_t i = 0; i < out_check.size(); i++) {
+        CHECK_EQ((*out_preds)[i], out_check[i]) << (*out_preds)[i] << "," << out_check[i];
+    }
+
+    std::cout << "DO algorithm check passed!" << std::endl;
   }
 
  public:
@@ -463,18 +451,8 @@ class CPUPredictor : public Predictor {
       this->PredictDMatrixDO(dmat, &out_preds->HostVector(), model,
                            beg_version * output_groups,
                            end_version * output_groups);
-
       // 检测DO算法
-      // std::vector<bst_float> out_check;
-      // out_check.resize(out_preds->HostVector().size(), 0);
-      // this->PredictDMatrix(dmat, &out_check, model,
-      //                      beg_version * output_groups,
-      //                      end_version * output_groups);
-
-      // for (size_t i = 0; i < out_check.size(); i++)
-      // {
-      //   CHECK_EQ(out_preds->HostVector()[i], out_check[i])<<out_preds->HostVector()[i]<<","<< out_check[i];
-      // }
+      CheckDOAlgorithm(this, dmat, &out_preds->HostVector(), model, beg_version, end_version, output_groups);
       
 #else
       this->PredictDMatrix(dmat, &out_preds->HostVector(), model,

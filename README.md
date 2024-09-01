@@ -6,6 +6,25 @@ DOXIE's main test code is located in the `./do-enhanced` folder.
 
 The main implementation of the DOXIE algorithm can be found in the file `./include/enclave/dpobl_operator.h` and `./enclave/src/predictor/cpu_predictor.cc`
 
+## Direcitory Structure
+```
+.
+├── do-enhanced
+│   ├── data/                            # data files for testing and training
+│   |   ├── time.log                     # log file for inference results
+│   |   ├── output_log_records.csv       # final result file
+│   ├── results/                         # deprecated, not used
+│   ├── scripts/                         # deprecated, not used
+│   ├── batch_script.sh                  # batch test script to test results under various parameters in one go
+│   ├── build_project.sh                 # build script for DOXIE, (--DO, --O and none)
+│   ├── preprocess_{data}.py             # data preprocessing script for {data} dataset
+│   ├── train.py                         # test code for training
+│   ├── predict.py                       # test code for inference, predict results was written to data/time.log
+|   ├── handle_log.py                    # script to handle the log file and generate the final result to output_log_records.csv
+│   ├── encrypt.py                       # script to encrypt the preprocessed data
+│   ├── utils.py                         # utility functions
+```
+
 ## Test Procedure
 * Install.
 
@@ -23,7 +42,20 @@ The main implementation of the DOXIE algorithm can be found in the file `./inclu
     cd do-enhanced
     python3 train.py
     python3 predict.py
-    ./batch_script.sh # run the batch test
+    ```
+
+* batch test
+
+    ```sh
+    cd do-enhanced
+    ./batch_script.sh
+    ```
+
+* get the test result
+
+    ```sh
+    cd do-enhanced
+    python3 handle_log.py
     ```
 
 # Secure XGBoost
