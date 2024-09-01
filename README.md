@@ -34,7 +34,7 @@ The main implementation of the DOXIE algorithm can be found in the file `./inclu
 
     ```sh
     cd do-enhanced
-    ./build_project.sh
+    ./build_project.sh --DO
     ```
 * test using the test code in `./do-enhanced` folder.
 
