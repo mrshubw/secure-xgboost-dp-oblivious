@@ -36,11 +36,18 @@ The main implementation of the DOXIE algorithm can be found in the file `./inclu
     cd do-enhanced
     ./build_project.sh --DO
     ```
-* test using the test code in `./do-enhanced` folder.
+
+* train model if needed.
 
     ```sh
     cd do-enhanced
     python3 train.py
+    ```
+
+* test using the test code in `./do-enhanced` folder.
+
+    ```sh
+    cd do-enhanced
     python3 predict.py
     ```
 
@@ -51,7 +58,7 @@ The main implementation of the DOXIE algorithm can be found in the file `./inclu
     ./batch_script.sh
     ```
 
-* get the test result
+* get the test result after running the test scripts.
 
     ```sh
     cd do-enhanced
