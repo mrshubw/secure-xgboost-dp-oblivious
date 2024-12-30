@@ -569,6 +569,63 @@ class RegTree : public Model {
    */
   void FillNodeMeanValues();
 
+  // 生成dummy样本并返回SparsePage
+  SparsePage GenerateDummySamples() const {
+    SparsePage dummy_samples;  // 创建一个SparsePage对象用于存储dummy样本
+
+    // 遍历所有节点，找到叶子节点
+    for (size_t nid = 0; nid < nodes_.size(); ++nid) {
+      if (nodes_[nid].IsLeaf()) {
+        // 创建dummy样本的特征数组
+        std::vector<xgboost::Entry> dummy_entry_array;
+
+        // 使用父节点的特征索引构建特征值
+        BuildDummyEntries(nid, dummy_entry_array);
+
+        // 创建SparsePage::Inst对象，并将dummy条目添加到该实例中
+        SparsePage::Inst inst{dummy_entry_array.data(), dummy_entry_array.size()};
+        dummy_samples.Push(inst);  // 将dummy样本推入SparsePage
+      }
+    }
+
+    return dummy_samples;  // 返回生成的dummy样本
+  }
+// 根据叶子节点的路径构建dummy样本的特征
+  void BuildDummyEntries(size_t leaf_nid, std::vector<xgboost::Entry>& dummy_entries) const {
+    // 从当前叶子节点向上遍历到根节点
+    bst_node_t nid = leaf_nid;
+
+    while (nid != 0) {  // 直到到达根节点
+      const auto& node = nodes_[nid];
+      bst_node_t parent_nid = node.Parent();
+      
+      // if (parent_nid == 0) {
+      //   break;  // 如果已经到达根节点则退出
+      // }
+
+      // 获取父节点的特征索引
+      unsigned split_index = nodes_[parent_nid].SplitIndex();
+      xgboost::Entry entry;
+
+      // 检测当前节点是左子节点还是右子节点
+      bool is_left_child = (nid == nodes_[parent_nid].LeftChild());
+
+      // 根据子节点类型设置特征值
+      if (is_left_child) {
+        // 左子节点，设置为尽可能小的特征值
+        entry.index = split_index;
+        entry.fvalue = std::numeric_limits<bst_float>::lowest();
+      } else {
+        // 右子节点，设置为尽可能大的特征值
+        entry.index = split_index;
+        entry.fvalue = std::numeric_limits<bst_float>::max();
+      }
+
+      dummy_entries.push_back(entry); // 添加到dummy_entries数组
+      nid = parent_nid;  // 移动到父节点
+    }
+  }
+
 #ifdef __ENCLAVE_DPOBLIVIOUS__
   /*!
    * \brief get the leaf value dp obliviously

@@ -30,6 +30,14 @@ The main implementation of the DOXIE algorithm can be found in the file `./inclu
 
     see [Installation](#installation)
 
+* Install python dependencies. Installing python dependencies as described in the installation section may fail, in which case you can try the following:
+
+    ```sh
+    pip install --upgrade pip
+    pip install -r requirements.txt
+
+    ```
+
 * Build XGBoost with DOXIE and install the Python package.
 
     ```sh

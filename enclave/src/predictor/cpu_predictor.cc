@@ -335,9 +335,13 @@ class CPUPredictor : public Predictor {
       // std::cout<<"num_group: "<<num_group<<std::endl;
       // std::cout<<"batch size: "<<batch.Size()<<std::endl;
       // std::cout<<"batch data size: "<<batch.data.Size() * sizeof(xgboost::Entry)<<std::endl;
+      std::vector<xgboost::SparsePage> trees_dummy_samples;
+      for (size_t i = 0; i < model.trees.size(); i++) {
+        trees_dummy_samples.push_back(model.trees[i]->GenerateDummySamples());
+      }
       
       DOoperator do_operator(epsilon, delta, 1);
-      do_operator.Preprocess(batch, model.trees[0]->GetNodes().size(), &monitor1, (tree_end-tree_begin), num_group);
+      do_operator.Preprocess(batch, trees_dummy_samples, model.trees[0]->GetNodes().size(), &monitor1, (tree_end-tree_begin), num_group);
       
       monitor1.StartForce("PredictNO");
       PredictBatchKernel(SparsePageView<kUnroll>{&do_operator.shuffle_page}, &(do_operator.shuffle_preds), model,

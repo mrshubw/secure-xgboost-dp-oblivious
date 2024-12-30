@@ -332,6 +332,24 @@ class SparsePage {
     }
   }
 
+// DOXIE修改项，增加oblivious相关函数
+  /*!
+   * \brief 计算SparsePage中所有行所包含项的最大数量
+   * \return 返回最大项的数量
+   */
+  size_t MaxNumberOfEntries() const {
+    size_t max_entries = 0; // 用于存储最大项数
+    size_t num_rows = Size(); // 获取行数
+
+    for (size_t i = 0; i < num_rows; ++i) {
+      size_t current_row_size = (*this)[i].size(); // 获取当前行的项的数量
+      if (current_row_size > max_entries) {
+        max_entries = current_row_size; // 更新最大项数
+      }
+    }
+    return max_entries; // 返回结果
+  }
+
   inline void PushObliviousSrc(SparsePage& src, size_t i){
     auto& dst_data_vec = data.HostVector();
     auto& dst_offset_vec = offset.HostVector();
@@ -343,6 +361,8 @@ class SparsePage {
     ObliviousArrayAccessBytes(dst_data_vec.data() + dst_offset_vec.back(), src_data_vec.data(), size*sizeof(Entry), i, src_data_vec.size()/size);
     dst_offset_vec.push_back(dst_offset_vec.back()+size);
   }
+// DOXIE修改项，增加oblivious相关函数
+
 
   /*!
    * \brief Push row block into the page.
@@ -378,6 +398,60 @@ class SparsePage {
    * \param batch The row batch to be pushed
    */
   void PushCSC(const SparsePage& batch);
+};
+
+/* 
+ * \brief DOXIE修改项，填充数据到固定长度，保证对数据的操作满足oblivious
+ */
+class SparsePagePadding : public SparsePage {
+ public:
+  // 每一行数据的固定大小
+  size_t fixed_row_size;
+
+  SparsePagePadding(size_t row_size) 
+      : fixed_row_size(row_size) {
+  }
+
+  // 扩充一行inst到固定长度，并写入新位置
+  void ExpandAndWrite(size_t inst_index, const SparsePage& sparse_page) {
+    // 确保实例索引有效
+    assert(inst_index < sparse_page.Size());
+  
+    auto& data_vec = data.HostVector();
+    auto& offset_vec = offset.HostVector();
+
+    // 获取当前实例数据
+    auto inst = sparse_page[inst_index];
+    size_t row_size = inst.size();
+
+    // 在偏移量中添加新行的长度
+    size_t new_offset = offset_vec.back() + fixed_row_size;
+    offset_vec.push_back(new_offset);
+
+    // 写入扩充后的数据
+    for (size_t j = 0; j < fixed_row_size; ++j) {
+      if (j < row_size) {
+        // 如果原数据行的大小足够，填充现有数据
+        data_vec.push_back(inst[j]);
+      } else {
+        // 填充尽可能大的值
+        data_vec.emplace_back(Entry{std::numeric_limits<bst_feature_t>::max(), 0.0f});
+      }
+    }
+  }
+
+  // 转换构造函数，从SparsePage填充到SparsePagePadding
+  static SparsePagePadding FromSparsePage(const SparsePage& sparse_page) {
+    SparsePagePadding padded_page(sparse_page.MaxNumberOfEntries());
+
+    for (size_t i = 0; i < sparse_page.Size(); ++i) {
+      padded_page.ExpandAndWrite(i, sparse_page); // 扩充并写入
+    }
+
+    return padded_page;
+  }
+
+  // 提供更多可以重载或实现的功能...
 };
 
 class CSCPage: public SparsePage {

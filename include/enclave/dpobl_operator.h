@@ -891,7 +891,8 @@ public:
   void ProduceDummySamples(xgboost::SparsePage& dummySamples, xgboost::SparsePage& in_page, size_t samples_num){
       for (size_t i = 0; i < samples_num; i++)
       {
-        dummySamples.Push(in_page[0]);
+        dummySamples.Push(in_page[i*(in_page.Size()-1)/(samples_num-1)]);
+        // dummySamples.Push(in_page[0]);
       }
   }
 
@@ -924,15 +925,17 @@ public:
   }
 
   template <typename Monitor>
-  void Preprocess(xgboost::SparsePage& in_page, size_t tree_nodes_num, Monitor* monitor_ = nullptr, int trees_num=1, int num_groups=1){
+  void Preprocess(xgboost::SparsePage& in_page, std::vector<xgboost::SparsePage>& trees_dummy_samples, size_t tree_nodes_num, Monitor* monitor_ = nullptr, int trees_num=1, int num_groups=1){
     size_t samples_num = (tree_nodes_num/2)/200;
     std::cout<<"trees_num: "<<trees_num<<" samples_num: "<<samples_num<<std::endl;
-    xgboost::SparsePage noise_page;
-    noise_page.Push(in_page);
+    // xgboost::SparsePage noise_page;
+    // noise_page.Push(in_page);
+    auto noise_page = xgboost::SparsePagePadding::FromSparsePage(in_page);
+
     for (size_t i = 0; i < trees_num; i++)
     {
       xgboost::SparsePage dummySamples;
-      ProduceDummySamples(dummySamples, in_page, samples_num);
+      ProduceDummySamples(dummySamples, trees_dummy_samples[i], samples_num);
 
       // add dummy
       if (monitor_ != nullptr) monitor_->StartForce("AddDummy");
