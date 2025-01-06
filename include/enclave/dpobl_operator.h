@@ -12,6 +12,7 @@
 #include "enclave/obl_primitives.h"
 #include "xgboost/base.h"
 #include "xgboost/data.h"
+#include "psrr/shuffle.h"
 
 constexpr int cache_size = 4 * 1024;
 
@@ -844,6 +845,8 @@ inline double calculateMean(double sigma, double delta) {
   return -sigma * z;
 }
 
+#define PSRR_OSHUFFLE
+
 class DOoperator
 {
 private:
@@ -856,6 +859,9 @@ public:
   xgboost::SparsePage shuffle_page;
   std::vector<int> shuffle_index;
   std::vector<xgboost::bst_float> shuffle_preds;
+  #ifdef PSRR_OSHUFFLE
+  std::unique_ptr<obl::OShuffler> oshuffler;
+  #endif
 
   DOoperator(/* args */):DOoperator(1, 0.00001, 1){};
   DOoperator(double epsilon, double delta, double sensitivity):epsilon(epsilon),delta(delta),sensitivity(sensitivity){
@@ -888,10 +894,11 @@ public:
     return array;
   }
   
-  void ProduceDummySamples(xgboost::SparsePage& dummySamples, xgboost::SparsePage& in_page, size_t samples_num){
+  void ProduceDummySamples(xgboost::SparsePagePadding& dummySamples, xgboost::SparsePage& in_page, size_t samples_num){
       for (size_t i = 0; i < samples_num; i++)
       {
-        dummySamples.Push(in_page[i*(in_page.Size()-1)/(samples_num-1)]);
+        dummySamples.ExpandAndWrite(i*(in_page.Size()-1)/(samples_num-1), in_page);
+        // dummySamples.ExpandAndWrite(in_page[i*(in_page.Size()-1)/(samples_num-1)]);
         // dummySamples.Push(in_page[0]);
       }
   }
@@ -931,10 +938,14 @@ public:
     // xgboost::SparsePage noise_page;
     // noise_page.Push(in_page);
     auto noise_page = xgboost::SparsePagePadding::FromSparsePage(in_page);
+    // for (size_t  i = 0; i < noise_page.Size(); i++)
+    // {
+    //   std::cout << " "<<i<<": " << noise_page[i].size() << std::endl;
+    // }
 
     for (size_t i = 0; i < trees_num; i++)
     {
-      xgboost::SparsePage dummySamples;
+      xgboost::SparsePagePadding dummySamples(noise_page.fixed_row_size);
       ProduceDummySamples(dummySamples, trees_dummy_samples[i], samples_num);
 
       // add dummy
@@ -942,14 +953,36 @@ public:
       AddDummy(noise_page, dummySamples);
       if (monitor_ != nullptr) monitor_->StopForce("AddDummy");
     }
+    // for (size_t  i = 0; i < noise_page.Size(); i++)
+    // {
+    //   std::cout << " "<<i<<": " << noise_page[i].size() << std::endl;
+    // }
     
     // shuffle
     if (monitor_ != nullptr) monitor_->StartForce("shuffle");
     shuffle_index.resize(noise_page.Size());
     shuffle_preds.resize(noise_page.Size() * num_groups);
     // std::cout<<"noise_page.Size(): "<<noise_page.Size()<<std::endl;
+    #ifdef PSRR_OSHUFFLE
+    oshuffler = std::unique_ptr<obl::OShuffler>(new obl::BitonicShuffler);
+    std::cout<<"noise_page.Size(): "<<noise_page.Size()<<" noise_page.fixed_row_size: "<<noise_page.fixed_row_size<<std::endl;
+    // oshuffler = obl::create("BitonicShuffler");
+    // auto temp_shuffler = new obl::BitonicShuffler;
+    // for (size_t  i = 0; i < noise_page.Size(); i++)
+    // {
+    //   std::cout << " "<<i<<": " << noise_page[i].size() << std::endl;
+    // }
+    
+    std::cout<<"noise_page.data.HostVector().size(): "<<noise_page.data.HostVector().size()<<std::endl;
+    std::cout<<"noise_page.Size()*noise_page.fixed_row_size: "<<noise_page.Size()*noise_page.fixed_row_size<<std::endl;
+    oshuffler->shuffle((uint8_t*)noise_page.data.HostVector().data(), noise_page.Size(), noise_page.fixed_row_size*sizeof(xgboost::Entry));
+    std::cout<<"shuffle_page.Size(): "<<shuffle_page.Size()<<std::endl;
+    shuffle_page.Push(noise_page);
+    std::cout<<"shuffle_page.Size(): "<<shuffle_page.Size()<<std::endl;
+    #else
     Shuffler& shuffler = Shuffler::getInstance();
     shuffler.shuffleForwardRandom(noise_page, shuffle_page, shuffle_index);
+    #endif
     if (monitor_ != nullptr) monitor_->StopForce("shuffle");
   }
 
@@ -991,6 +1024,10 @@ public:
     int num_groups = shuffle_preds.size() / shuffle_index.size();
 
     std::cout<<"shuffle_index.size(): "<<shuffle_index.size()<<" num_groups: "<<num_groups<<std::endl;
+    #ifdef PSRR_OSHUFFLE
+    oshuffler->inverseShuffle((uint8_t*)shuffle_preds.data(), num_groups*sizeof(xgboost::bst_float));
+    memcpy(out_preds->data(), shuffle_preds.data(), out_preds->size()*sizeof(xgboost::bst_float));
+    #else
     for (size_t i = 0; i < shuffle_index.size(); i++)
     {
       // if (shuffle_index[i]>=out_preds->size()/num_groups)
@@ -1003,6 +1040,7 @@ public:
 
       ObliviousArrayAssignBytes(out_preds->data(), shuffle_preds.data() + i * num_groups, num_groups*sizeof(xgboost::bst_float), index, n);
     }
+    #endif
     
     if (monitor_ != nullptr) monitor_->StopForce("PostProcess");
   }

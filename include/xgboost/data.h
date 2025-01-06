@@ -440,6 +440,12 @@ class SparsePagePadding : public SparsePage {
     }
   }
 
+  void FrommSparsePage(const SparsePage& sparse_page) {
+    for (size_t i = 0; i < sparse_page.Size(); ++i) {
+      ExpandAndWrite(i, sparse_page); // 扩充并写入
+    }
+  }
+
   // 转换构造函数，从SparsePage填充到SparsePagePadding
   static SparsePagePadding FromSparsePage(const SparsePage& sparse_page) {
     SparsePagePadding padded_page(sparse_page.MaxNumberOfEntries());

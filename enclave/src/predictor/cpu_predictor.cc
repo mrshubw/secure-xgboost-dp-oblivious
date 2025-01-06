@@ -25,6 +25,7 @@
 #ifdef __ENCLAVE_OBLIVIOUS__
 #include "enclave/dpobl_operator.h"
 #include "../common/quantile.h"
+#include "psrr/psrr.h"
 #endif
 
 namespace xgboost {
@@ -293,6 +294,7 @@ class CPUPredictor : public Predictor {
     common::Monitor monitor1;
     monitor1.Init("DO");
     monitor1.StartForce(__func__);
+    std::cout << "/* message */" << std::endl;
 
     std::lock_guard<std::mutex> guard(lock_);
     const int threads = omp_get_max_threads();
@@ -307,34 +309,9 @@ class CPUPredictor : public Predictor {
       double epsilon = 1.0;
       double delta = 0.00001;
       logStr("/home/hgtc/secure-xgboost-dp-oblivious/do-enhanced/data/time.log", "epsilon: ", epsilon);
-      // bool nosie_by_trees = false;
-      // if (nosie_by_trees)
-      // {
-      //   int32_t const num_group = model.learner_model_param->num_output_group;
-      //   std::cout<<"num_group: "<<num_group<<std::endl;
-      //   for (int gid = 0; gid < num_group; ++gid) {
-      //     // #pragma omp parallel for num_threads(5)
-      //     for (size_t i = tree_begin; i < tree_end; ++i) {
-      //       if (model.tree_info[i] == gid) {
-      //         // std::cout << "Thread " << omp_get_thread_num() << " processing element " << i << std::endl;
-      //         DOoperator do_operator(epsilon/(tree_end-tree_begin), delta/(tree_end-tree_begin), 1);
-      //         do_operator.Preprocess(batch, model.trees[0]->GetNodes().size(), &monitor1);
-
-      //         monitor1.StartForce("PredictNO");
-      //         PredictOneTree(do_operator.shuffle_page, do_operator.shuffle_preds, *model.trees[i], thread_temp_[0]);
-      //         monitor1.StopForce("PredictNO");
-
-      //         do_operator.PostProcessAdd(out_preds, &monitor1);
-      //       }
-      //     }
-      //   }
-      // }else
-      // {
-      // }
       int32_t const num_group = model.learner_model_param->num_output_group;
-      // std::cout<<"num_group: "<<num_group<<std::endl;
-      // std::cout<<"batch size: "<<batch.Size()<<std::endl;
-      // std::cout<<"batch data size: "<<batch.data.Size() * sizeof(xgboost::Entry)<<std::endl;
+
+      #if 1
       std::vector<xgboost::SparsePage> trees_dummy_samples;
       for (size_t i = 0; i < model.trees.size(); i++) {
         trees_dummy_samples.push_back(model.trees[i]->GenerateDummySamples());
@@ -347,10 +324,20 @@ class CPUPredictor : public Predictor {
       PredictBatchKernel(SparsePageView<kUnroll>{&do_operator.shuffle_page}, &(do_operator.shuffle_preds), model,
                         tree_begin, tree_end, &thread_temp_, &monitor_);
       monitor1.StopForce("PredictNO");
-      // std::cout<<"shuffle_preds: "<<do_operator.shuffle_preds.size()<<std::endl;
       do_operator.PostProcess(out_preds, &monitor1);
-      // std::cout<<"out_preds: "<<out_preds->size()<<std::endl;
-      // std::cout<<"shuffle_preds: "<<do_operator.shuffle_preds.size()<<std::endl;
+
+      #else
+      PSRR psrr(epsilon, delta, 1);
+      xgboost::SparsePagePadding in_page = xgboost::SparsePagePadding::FromSparsePage(batch);
+
+      xgboost::SparsePage dummy_samples;
+      for (size_t i = 0; i < model.trees.size(); i++) {
+        model.trees[i]->GenerateDummySamples(dummy_samples);
+      }
+      psrr.perturb(dummy_samples.data.HostVector().data(), dummy_samples.MaxNumberOfEntries()* sizeof(xgboost::Entry), dummy_samples.Size());
+
+
+      #endif
       
     }
 

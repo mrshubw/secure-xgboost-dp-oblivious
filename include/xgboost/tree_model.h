@@ -590,6 +590,23 @@ class RegTree : public Model {
 
     return dummy_samples;  // 返回生成的dummy样本
   }
+  // 生成dummy样本并返回SparsePage
+  void GenerateDummySamples(SparsePage& dummy_samples) {
+    // 遍历所有节点，找到叶子节点
+    for (size_t nid = 0; nid < nodes_.size(); ++nid) {
+      if (nodes_[nid].IsLeaf()) {
+        // 创建dummy样本的特征数组
+        std::vector<xgboost::Entry> dummy_entry_array;
+
+        // 使用父节点的特征索引构建特征值
+        BuildDummyEntries(nid, dummy_entry_array);
+
+        // 创建SparsePage::Inst对象，并将dummy条目添加到该实例中
+        SparsePage::Inst inst{dummy_entry_array.data(), dummy_entry_array.size()};
+        dummy_samples.Push(inst);  // 将dummy样本推入SparsePage
+      }
+    }
+  }
 // 根据叶子节点的路径构建dummy样本的特征
   void BuildDummyEntries(size_t leaf_nid, std::vector<xgboost::Entry>& dummy_entries) const {
     // 从当前叶子节点向上遍历到根节点

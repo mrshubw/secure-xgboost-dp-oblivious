@@ -28,7 +28,6 @@ def predict_all(dataset, max_depth_list, num_rounds_list, data_size_list):
         for max_depth in max_depth_list:
             model_name = f"modeld{max_depth}n{num_rounds}.model"
             booster[f"{num_rounds}"][f"{max_depth}"] = xgb.Booster(model_file=os.path.join(data_dir, model_name))
-
     for num_rounds in num_rounds_list:
         for data_size in data_size_list:
             for max_depth in max_depth_list:
@@ -77,6 +76,6 @@ if __name__ == "__main__":
     # main()
 
     # predict_all(dataset="allstate", max_depth_list=range(3,11), num_rounds_list=[5], data_size_list=[1000, 10000, 100000])
-    predict_all(dataset="allstate", max_depth_list=[7], num_rounds_list=[5], data_size_list=[1000])
+    predict_all(dataset="higgs", max_depth_list=[10], num_rounds_list=[5], data_size_list=[1000])
 # [5, 10, 20, 40]
 # [2, 3, 4, 5, 6, 7, 8, 9, 10]

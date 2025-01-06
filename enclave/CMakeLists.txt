@@ -8,7 +8,7 @@ set(RABIT_SOURCES
     rabit/src/ssl_attestation.cc 
     rabit/src/engine.cc
     rabit/src/c_api.cc)
-file(GLOB_RECURSE CPU_SOURCES dmlc-core/*.cc src/*.cc)
+file(GLOB_RECURSE CPU_SOURCES dmlc-core/*.cc src/*.cc src/*.cpp)
 list(REMOVE_ITEM CPU_SOURCES ${PROJECT_SOURCE_DIR}/src/cli_main.cc)
 
 set(CMAKE_CXX_STANDARD 11)
@@ -123,6 +123,15 @@ if (LVI_MITIGATION)
 else()
     target_link_libraries(xgboost_enclave openenclave::oeenclave openenclave::oecrypto${OE_CRYPTO_LIB} openenclave::oelibcxx openenclave::oehostfs openenclave::oehostsock openenclave::oehostresolver)
 endif()
+
+# # 启用 SSE、SSE2 和 AES 支持
+# target_compile_options(xgboost_enclave PRIVATE
+#     $<$<CXX_COMPILER_ID:GNU>:-msse -msse2 -maes>   # 对于 GCC 和 Clang
+#     $<$<CXX_COMPILER_ID:MSVC>:/arch:SSE2>             # 对于 MSVC
+# )
+# link Oblivious Shuffle Library for Oblivious shuffle and PSRR
+# add_subdirectory(${PROJECT_SOURCE_DIR}/../libs/ObliviousShuffle)
+# target_link_libraries(xgboost_enclave ObliviousShuffle)
 
 # Sign enclave
 get_filename_component(SIGNER_KEY_FILE ${SIGNER_KEY_FILE}
