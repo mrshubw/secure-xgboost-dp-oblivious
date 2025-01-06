@@ -894,10 +894,10 @@ public:
     return array;
   }
   
-  void ProduceDummySamples(xgboost::SparsePagePadding& dummySamples, xgboost::SparsePage& in_page, size_t samples_num){
-      for (size_t i = 0; i < samples_num; i++)
+  void ProduceDummySamples(xgboost::SparsePagePadding& dummySamples, xgboost::SparsePage& in_page){
+      for (size_t i = 0; i < in_page.Size(); i++)
       {
-        dummySamples.ExpandAndWrite(i*(in_page.Size()-1)/(samples_num-1), in_page);
+        dummySamples.ExpandAndWrite(i, in_page);
         // dummySamples.ExpandAndWrite(in_page[i*(in_page.Size()-1)/(samples_num-1)]);
         // dummySamples.Push(in_page[0]);
       }
@@ -935,18 +935,13 @@ public:
   void Preprocess(xgboost::SparsePage& in_page, std::vector<xgboost::SparsePage>& trees_dummy_samples, size_t tree_nodes_num, Monitor* monitor_ = nullptr, int trees_num=1, int num_groups=1){
     size_t samples_num = (tree_nodes_num/2)/200;
     std::cout<<"trees_num: "<<trees_num<<" samples_num: "<<samples_num<<std::endl;
-    // xgboost::SparsePage noise_page;
-    // noise_page.Push(in_page);
+    
     auto noise_page = xgboost::SparsePagePadding::FromSparsePage(in_page);
-    // for (size_t  i = 0; i < noise_page.Size(); i++)
-    // {
-    //   std::cout << " "<<i<<": " << noise_page[i].size() << std::endl;
-    // }
 
     for (size_t i = 0; i < trees_num; i++)
     {
       xgboost::SparsePagePadding dummySamples(noise_page.fixed_row_size);
-      ProduceDummySamples(dummySamples, trees_dummy_samples[i], samples_num);
+      ProduceDummySamples(dummySamples, trees_dummy_samples[i]);
 
       // add dummy
       if (monitor_ != nullptr) monitor_->StartForce("AddDummy");
@@ -962,7 +957,7 @@ public:
     if (monitor_ != nullptr) monitor_->StartForce("shuffle");
     shuffle_index.resize(noise_page.Size());
     shuffle_preds.resize(noise_page.Size() * num_groups);
-    // std::cout<<"noise_page.Size(): "<<noise_page.Size()<<std::endl;
+    std::cout<<"noise_page.Size(): "<<noise_page.Size()<<std::endl;
     #ifdef PSRR_OSHUFFLE
     oshuffler = std::unique_ptr<obl::OShuffler>(new obl::BitonicShuffler);
     std::cout<<"noise_page.Size(): "<<noise_page.Size()<<" noise_page.fixed_row_size: "<<noise_page.fixed_row_size<<std::endl;

@@ -327,14 +327,14 @@ class CPUPredictor : public Predictor {
       do_operator.PostProcess(out_preds, &monitor1);
 
       #else
-      PSRR psrr(epsilon, delta, 1);
-      xgboost::SparsePagePadding in_page = xgboost::SparsePagePadding::FromSparsePage(batch);
+      // PSRR psrr(epsilon, delta, 1);
+      // xgboost::SparsePagePadding in_page = xgboost::SparsePagePadding::FromSparsePage(batch);
 
-      xgboost::SparsePage dummy_samples;
-      for (size_t i = 0; i < model.trees.size(); i++) {
-        model.trees[i]->GenerateDummySamples(dummy_samples);
-      }
-      psrr.perturb(dummy_samples.data.HostVector().data(), dummy_samples.MaxNumberOfEntries()* sizeof(xgboost::Entry), dummy_samples.Size());
+      // xgboost::SparsePage dummy_samples;
+      // for (size_t i = 0; i < model.trees.size(); i++) {
+      //   model.trees[i]->GenerateDummySamples(dummy_samples);
+      // }
+      // psrr.perturb(dummy_samples.data.HostVector().data(), dummy_samples.MaxNumberOfEntries()* sizeof(xgboost::Entry), dummy_samples.Size());
 
 
       #endif
