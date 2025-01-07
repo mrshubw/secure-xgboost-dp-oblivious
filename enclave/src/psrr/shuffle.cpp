@@ -254,4 +254,19 @@ namespace obl
         memcpy(out_buf, buf + offset * block_size, (wnet->numItems() - offset) * block_size);
     }
     #endif // ENABLE_WAKSON_SHUFFLE
+
+    std::unique_ptr<OShuffler> getShuffler(std::string method){
+        if (method == "BitonicShuffler") 
+        {
+            return std::unique_ptr<OShuffler>(new BitonicShuffler());
+        } else if (method == "RecursiveShuffler") 
+        {
+            return std::unique_ptr<OShuffler>(new RecursiveShuffler());
+        } else
+        {
+            std::cout << "No such shuffler method: " << method << std::endl;
+            return nullptr;
+        }
+        
+    }
 }

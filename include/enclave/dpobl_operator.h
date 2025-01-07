@@ -372,6 +372,77 @@ inline int DPPrefixSum(int prefix_sum, int error) {
 //   }
 // };
 
+
+inline void logStr(std::string logfile, std::string outStr){
+
+  // Create an ofstream (output file stream) object
+  std::fstream outfile;
+
+  // Open the file in write mode
+  outfile.open(logfile, std::ios::out|std::ios::app);
+  // Check if the file was opened successfully
+  if (!outfile) {
+      std::cerr << "Error opening file" << std::endl;
+      return;
+  }
+
+  outfile<<outStr;
+  
+  // Close the file
+  outfile.close();
+}
+
+template <typename VauleType>
+inline void logStr(std::string logfile, std::string outStr, VauleType value){
+
+  // Create an ofstream (output file stream) object
+  std::fstream outfile;
+
+  // Open the file in write mode
+  outfile.open(logfile, std::ios::out|std::ios::app);
+  // Check if the file was opened successfully
+  if (!outfile) {
+      std::cerr << "Error opening file" << std::endl;
+      return;
+  }
+
+  outfile<<outStr<<value<<std::endl;
+  
+  // Close the file
+  outfile.close();
+}
+
+
+
+// 从配置文件中读取指定参数的值，支持不同类型
+template <typename T>
+T ReadParameterFromConfig(const std::string &filename, const std::string &key, const T& default_value = T()) {
+    std::ifstream file(filename);
+    std::string line;
+    T value = default_value; // 默认值
+
+    if (file.is_open()) {
+        while (getline(file, line)) {
+            if (line.find(key + "=") == 0) { // 检查每一行是否以key开头
+                std::string value_str = line.substr(line.find('=') + 1); // 提取等号后的值
+                
+                if constexpr (std::is_same<T, std::string>::value) {
+                    value = value_str; // 字符串类型直接赋值
+                } else {
+                    std::istringstream iss(value_str);
+                    iss >> value; // 将字符串转换为目标类型
+                }
+                break; // 找到后可以退出
+            }
+        }
+        file.close();
+    } else {
+        std::cerr << "Cannot open file: " << filename << std::endl;
+    }
+
+    return value; // 返回读取的值或默认值
+}
+
 template<typename DataType>
 class Bucket {
  private:
@@ -896,7 +967,7 @@ public:
   }
   
   void ProduceDummySamples(xgboost::SparsePagePadding& dummySamples, xgboost::SparsePage& in_page){
-    std::cout<<"ProduceDummySamples size: "<<in_page.Size()<<std::endl;
+    // std::cout<<"ProduceDummySamples size: "<<in_page.Size()<<std::endl;
     size_t nodes_in_cache_page = 200;
     for (size_t i = 0; i < in_page.Size(); i += nodes_in_cache_page)
     {
@@ -962,8 +1033,10 @@ public:
     shuffle_preds.resize(noise_page.Size() * num_groups);
     std::cout<<"noise_page.Size(): "<<noise_page.Size()<<std::endl;
     #ifdef PSRR_OSHUFFLE
-    oshuffler = std::unique_ptr<obl::OShuffler>(new obl::BitonicShuffler);
-    std::cout<<"noise_page.Size(): "<<noise_page.Size()<<" noise_page.fixed_row_size: "<<noise_page.fixed_row_size<<std::endl;
+    std::string shuffler_type = ReadParameterFromConfig<std::string>("/home/hgtc/secure-xgboost-dp-oblivious/do-enhanced/data/config.txt", "shuffleMethod", "BitonicShuffler");
+    logStr("/home/hgtc/secure-xgboost-dp-oblivious/do-enhanced/data/time.log", "shuffleMethod: ", shuffler_type);
+    oshuffler = obl::getShuffler(shuffler_type);
+    // std::cout<<"noise_page.Size(): "<<noise_page.Size()<<" noise_page.fixed_row_size: "<<noise_page.fixed_row_size<<std::endl;
     // oshuffler = obl::create("BitonicShuffler");
     // auto temp_shuffler = new obl::BitonicShuffler;
     // for (size_t  i = 0; i < noise_page.Size(); i++)
@@ -971,12 +1044,12 @@ public:
     //   std::cout << " "<<i<<": " << noise_page[i].size() << std::endl;
     // }
     
-    std::cout<<"noise_page.data.HostVector().size(): "<<noise_page.data.HostVector().size()<<std::endl;
-    std::cout<<"noise_page.Size()*noise_page.fixed_row_size: "<<noise_page.Size()*noise_page.fixed_row_size<<std::endl;
+    // std::cout<<"noise_page.data.HostVector().size(): "<<noise_page.data.HostVector().size()<<std::endl;
+    // std::cout<<"noise_page.Size()*noise_page.fixed_row_size: "<<noise_page.Size()*noise_page.fixed_row_size<<std::endl;
     oshuffler->shuffle((uint8_t*)noise_page.data.HostVector().data(), noise_page.Size(), noise_page.fixed_row_size*sizeof(xgboost::Entry));
-    std::cout<<"shuffle_page.Size(): "<<shuffle_page.Size()<<std::endl;
+    // std::cout<<"shuffle_page.Size(): "<<shuffle_page.Size()<<std::endl;
     shuffle_page.Push(noise_page);
-    std::cout<<"shuffle_page.Size(): "<<shuffle_page.Size()<<std::endl;
+    // std::cout<<"shuffle_page.Size(): "<<shuffle_page.Size()<<std::endl;
     #else
     Shuffler& shuffler = Shuffler::getInstance();
     shuffler.shuffleForwardRandom(noise_page, shuffle_page, shuffle_index);
@@ -1043,66 +1116,3 @@ public:
     if (monitor_ != nullptr) monitor_->StopForce("PostProcess");
   }
 };
-
-
-inline void logStr(std::string logfile, std::string outStr){
-
-  // Create an ofstream (output file stream) object
-  std::fstream outfile;
-
-  // Open the file in write mode
-  outfile.open(logfile, std::ios::out|std::ios::app);
-  // Check if the file was opened successfully
-  if (!outfile) {
-      std::cerr << "Error opening file" << std::endl;
-      return;
-  }
-
-  outfile<<outStr;
-  
-  // Close the file
-  outfile.close();
-}
-
-template <typename VauleType>
-inline void logStr(std::string logfile, std::string outStr, VauleType value){
-
-  // Create an ofstream (output file stream) object
-  std::fstream outfile;
-
-  // Open the file in write mode
-  outfile.open(logfile, std::ios::out|std::ios::app);
-  // Check if the file was opened successfully
-  if (!outfile) {
-      std::cerr << "Error opening file" << std::endl;
-      return;
-  }
-
-  outfile<<outStr<<value<<std::endl;
-  
-  // Close the file
-  outfile.close();
-}
-
-// 从配置文件中读取 epsilon 值
-inline double ReadEpsilonFromConfig(const std::string &filename) {
-    std::ifstream file(filename);
-    std::string line;
-    double epsilon = 1.0; // 默认值
-
-    if (file.is_open()) {
-        while (getline(file, line)) {
-            if (line.find("epsilon=") == 0) {
-                std::string value = line.substr(line.find('=') + 1);
-                std::istringstream iss(value);
-                iss >> epsilon;
-                break; // 找到后可以退出
-            }
-        }
-        file.close();
-    } else {
-        std::cerr << "can not open file: " << filename << std::endl;
-    }
-
-    return epsilon;
-}

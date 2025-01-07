@@ -306,7 +306,7 @@ class CPUPredictor : public Predictor {
                    model.learner_model_param->num_output_group);
       size_t constexpr kUnroll = 8;
 
-      double epsilon = ReadEpsilonFromConfig("/home/hgtc/secure-xgboost-dp-oblivious/do-enhanced/data/config.txt"); // 从文件读取 epsilon
+      double epsilon = ReadParameterFromConfig("/home/hgtc/secure-xgboost-dp-oblivious/do-enhanced/data/config.txt", "epsilon", 1.0); // 从文件读取 epsilon
       // double epsilon = 1.0;
       double delta = 0.00001;
       logStr("/home/hgtc/secure-xgboost-dp-oblivious/do-enhanced/data/time.log", "epsilon: ", epsilon);

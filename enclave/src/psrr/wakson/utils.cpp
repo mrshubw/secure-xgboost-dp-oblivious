@@ -7,17 +7,19 @@ void PRB_buffer::getRandomBytes(unsigned char *buffer, size_t size) {
         random_bytes_ptr += size;
         random_bytes_left -= size;
     } else {
-        // 消耗所有剩余的随机字节
-        std::memcpy(buffer, random_bytes_ptr, random_bytes_left);
+        // Consume all the random bytes we have left
+        unsigned char *ptr = buffer;
         size_t size_left_for_req = size - random_bytes_left;
+        memcpy(ptr, random_bytes_ptr, random_bytes_left);
+        ptr+= random_bytes_left;
 
         // 生成新的随机字节
         std::generate(random_bytes, random_bytes + PRB_BUFFER_SIZE, std::ref(random_seed));
         random_bytes_left = PRB_BUFFER_SIZE;
         random_bytes_ptr = random_bytes;
 
-        // 将剩余的随机字节拷贝到缓冲区
-        std::memcpy(buffer + random_bytes_left, random_bytes_ptr, size_left_for_req);
+        // Add size_left_for_req random bytes to the buffer
+        memcpy(ptr, random_bytes_ptr, size_left_for_req);
         random_bytes_ptr += size_left_for_req;
         random_bytes_left -= size_left_for_req;
     }

@@ -102,4 +102,6 @@ namespace obl
         std::unique_ptr<WaksmanNetwork> wnet; // WaksmanShuffle需要的网络结构
     };
     #endif // ENABLE_WAKSMAN_SHUFFLE
+
+    std::unique_ptr<OShuffler> getShuffler(std::string method);
 }
