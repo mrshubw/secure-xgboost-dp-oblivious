@@ -8,6 +8,7 @@
 #include <fstream>
 #include <random>
 #include <vector>
+#include <sstream>
 
 #include "enclave/obl_primitives.h"
 #include "xgboost/base.h"
@@ -895,12 +896,14 @@ public:
   }
   
   void ProduceDummySamples(xgboost::SparsePagePadding& dummySamples, xgboost::SparsePage& in_page){
-      for (size_t i = 0; i < in_page.Size(); i++)
-      {
-        dummySamples.ExpandAndWrite(i, in_page);
-        // dummySamples.ExpandAndWrite(in_page[i*(in_page.Size()-1)/(samples_num-1)]);
-        // dummySamples.Push(in_page[0]);
-      }
+    std::cout<<"ProduceDummySamples size: "<<in_page.Size()<<std::endl;
+    size_t nodes_in_cache_page = 200;
+    for (size_t i = 0; i < in_page.Size(); i += nodes_in_cache_page)
+    {
+      dummySamples.ExpandAndWrite(i, in_page);
+      // dummySamples.ExpandAndWrite(in_page[i*(in_page.Size()-1)/(samples_num-1)]);
+      // dummySamples.Push(in_page[0]);
+    }
   }
 
   /**
@@ -933,8 +936,8 @@ public:
 
   template <typename Monitor>
   void Preprocess(xgboost::SparsePage& in_page, std::vector<xgboost::SparsePage>& trees_dummy_samples, size_t tree_nodes_num, Monitor* monitor_ = nullptr, int trees_num=1, int num_groups=1){
-    size_t samples_num = (tree_nodes_num/2)/200;
-    std::cout<<"trees_num: "<<trees_num<<" samples_num: "<<samples_num<<std::endl;
+    // size_t samples_num = (tree_nodes_num/2)/200;
+    // std::cout<<"trees_num: "<<trees_num<<" samples_num: "<<samples_num<<std::endl;
     
     auto noise_page = xgboost::SparsePagePadding::FromSparsePage(in_page);
 
@@ -1079,4 +1082,27 @@ inline void logStr(std::string logfile, std::string outStr, VauleType value){
   
   // Close the file
   outfile.close();
+}
+
+// 从配置文件中读取 epsilon 值
+inline double ReadEpsilonFromConfig(const std::string &filename) {
+    std::ifstream file(filename);
+    std::string line;
+    double epsilon = 1.0; // 默认值
+
+    if (file.is_open()) {
+        while (getline(file, line)) {
+            if (line.find("epsilon=") == 0) {
+                std::string value = line.substr(line.find('=') + 1);
+                std::istringstream iss(value);
+                iss >> epsilon;
+                break; // 找到后可以退出
+            }
+        }
+        file.close();
+    } else {
+        std::cerr << "can not open file: " << filename << std::endl;
+    }
+
+    return epsilon;
 }
