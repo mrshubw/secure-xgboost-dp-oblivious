@@ -1,0 +1,115 @@
+import time
+import securexgboost as xgb
+import os
+import pandas as pd
+import argparse
+from sklearn.metrics import accuracy_score
+from utils import *
+
+# @timer
+def predict(booster, dtest):
+    enc_preds, num_preds = booster.predict(dtest, decrypt=False)
+    preds = booster.decrypt_predictions(enc_preds, num_preds)
+
+    return preds
+
+def predict_all(max_depth_list=[2, 3, 4, 5, 6, 7, 8, 9], 
+                num_rounds_list=[5, 10, 20, 40], 
+                dataset_list=["higgs", "allstate", "covtype"], 
+                data_size_list=[1000, 10000, 100000], 
+                epsilon_list=[0.1, 1.0, 10.0], 
+                shuffle_method_list=["BitonicShuffler", "RecursiveShuffler"]):
+    initialize_xgboost()
+
+    # # preloading data to decrease the time of loading data
+    # dtest = {}
+    # for data_size in data_size_list:
+    #     enc_test_data = os.path.join(data_dir, f"data{data_size}.enc")
+    #     dtest[f"{data_size}"] = xgb.DMatrix({username: enc_test_data})
+
+    # booster = {}
+    # for num_rounds in num_rounds_list:
+    #     booster[f"{num_rounds}"] = {}
+    #     for max_depth in max_depth_list:
+    #         model_name = f"modeld{max_depth}n{num_rounds}.model"
+    #         booster[f"{num_rounds}"][f"{max_depth}"] = xgb.Booster(model_file=os.path.join(data_dir, model_name))
+
+    # select epsilon and shuffle method
+    for epsilon in epsilon_list:
+        for shuffle_method in shuffle_method_list:
+            # modify config file to set epsilon and shuffle method
+            with open('data/config.txt', 'w') as f:
+                f.write(f"epsilon={epsilon}\n")
+                f.write(f"shuffleMethod={shuffle_method}\n")
+
+            # select model with different depth and number of rounds
+            for num_rounds in num_rounds_list:
+                for max_depth in max_depth_list:
+                    model_name = f"modeld{max_depth}n{num_rounds}.model"
+                    # select dataset
+                    for dataset in dataset_list:
+                        data_dir = os.path.join(DATA_DIR, dataset)
+                        booster = xgb.Booster(model_file=os.path.join(data_dir, model_name))
+                        # preloading data to decrease the time of loading data
+                        dtest = {}
+                        for data_size in data_size_list:
+                            enc_test_data = os.path.join(data_dir, f"data{data_size}.enc")
+                            dtest[f"{data_size}"] = xgb.DMatrix({username: enc_test_data})
+
+                        # select data with different sizes
+                        for data_size in data_size_list:
+
+                            with open(LOG_FILE, 'a') as file:
+                                file.write(50*'+'+'\n')
+                                file.write("dataset: "+dataset+"\n")
+                                file.write(f"num_trees:{num_rounds}\ndata_size:{data_size}\ndepth:{max_depth}\n")
+                            time_start = time.time()
+                            preds = predict(booster=booster, dtest=dtest[f"{data_size}"])
+                            time_end = time.time()
+                            time_response = time_end - time_start
+                            print(preds)
+                            with open(LOG_FILE, 'a') as file:
+                                file.write(f"time_response:{time_response}\n")
+    # with open(LOG_FILE, 'a') as file:
+    #     file.write("dataset: "+dataset+"\n")
+    #     file.write("=========================\n")
+
+# def evals(preds, test_labels_file):
+#     test_data = pd.read_csv(test_labels_file, header=None, sep=" ", usecols=[0], names=["label"])
+#     y_test = test_data["label"].values
+#     threshold = 0.5
+#     ypred_binary = (preds > threshold).astype(int)
+#     accuracy = accuracy_score(y_test, ypred_binary)
+#     print(f"Model accuracy on test set: {accuracy * 100:.2f}%")
+    # return accuracy
+
+def main():
+    # Create the parser
+    parser = argparse.ArgumentParser(description="used for batch processing")
+
+    # Add arguments
+    parser.add_argument('-d', '--dataset', type=str, help="datset used", default="higgs")
+    parser.add_argument('-t', '--treesnum', type=int, help="number of trees", default=5)
+    parser.add_argument('-D', '--depth', type=int, help="maximum depth", default=0)
+
+    # Parse the arguments
+    args = parser.parse_args()
+
+    if args.depth == 0:
+        depth_list = [2, 3, 4, 5, 6, 7, 8, 9]
+        if args.treesnum == 5:
+            depth_list = [2, 3, 4, 5, 6, 7, 8, 9, 10]
+    else:
+        depth_list = [args.depth]
+
+
+    predict_all(dataset_list=[args.dataset], max_depth_list=depth_list, num_rounds_list=[args.treesnum], data_size_list=[1000, 10000, 100000])
+
+if __name__ == "__main__":
+    main()
+
+    # predict_all(dataset="allstate", max_depth_list=range(3,8), num_rounds_list=[5], data_size_list=[1000, 10000, 100000])
+    # predict_all(dataset_list=["higgs"], max_depth_list=[4], num_rounds_list=[5], data_size_list=[100000], epsilon_list=[0.1], shuffle_method_list=["BitonicShuffler"])
+    # predict_all()
+# [5, 10, 20, 40]
+# [2, 3, 4, 5, 6, 7, 8, 9, 10]

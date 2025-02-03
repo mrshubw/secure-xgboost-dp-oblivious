@@ -1031,7 +1031,7 @@ public:
     if (monitor_ != nullptr) monitor_->StartForce("shuffle");
     shuffle_index.resize(noise_page.Size());
     shuffle_preds.resize(noise_page.Size() * num_groups);
-    std::cout<<"noise_page.Size(): "<<noise_page.Size()<<std::endl;
+    // std::cout<<"noise_page.Size(): "<<noise_page.Size()<<std::endl;
     #ifdef PSRR_OSHUFFLE
     std::string shuffler_type = ReadParameterFromConfig<std::string>("/home/hgtc/secure-xgboost-dp-oblivious/do-enhanced/data/config.txt", "shuffleMethod", "BitonicShuffler");
     logStr("/home/hgtc/secure-xgboost-dp-oblivious/do-enhanced/data/time.log", "shuffleMethod: ", shuffler_type);
@@ -1094,7 +1094,7 @@ public:
 
     int num_groups = shuffle_preds.size() / shuffle_index.size();
 
-    std::cout<<"shuffle_index.size(): "<<shuffle_index.size()<<" num_groups: "<<num_groups<<std::endl;
+    // std::cout<<"shuffle_index.size(): "<<shuffle_index.size()<<" num_groups: "<<num_groups<<std::endl;
     #ifdef PSRR_OSHUFFLE
     oshuffler->inverseShuffle((uint8_t*)shuffle_preds.data(), num_groups*sizeof(xgboost::bst_float));
     memcpy(out_preds->data(), shuffle_preds.data(), out_preds->size()*sizeof(xgboost::bst_float));

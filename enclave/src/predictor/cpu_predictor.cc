@@ -444,7 +444,7 @@ class CPUPredictor : public Predictor {
                            beg_version * output_groups,
                            end_version * output_groups);
       // 检测DO算法
-      CheckDOAlgorithm(this, dmat, &out_preds->HostVector(), model, beg_version, end_version, output_groups);
+      // CheckDOAlgorithm(this, dmat, &out_preds->HostVector(), model, beg_version, end_version, output_groups);
       
 #else
       this->PredictDMatrix(dmat, &out_preds->HostVector(), model,

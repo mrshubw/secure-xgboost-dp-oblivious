@@ -29,14 +29,14 @@
 # python predict.py -d covtype -t 40
 
 ./build_project.sh --DO
-# python predict.py -d higgs -t 5
-# python predict.py -d higgs -t 10
-# python predict.py -d higgs -t 20
-# python predict.py -d higgs -t 40
-# python predict.py -d allstate -t 5
-# python predict.py -d allstate -t 10
-# python predict.py -d allstate -t 20
-# python predict.py -d allstate -t 40
+python predict.py -d higgs -t 5
+python predict.py -d higgs -t 10
+python predict.py -d higgs -t 20
+python predict.py -d higgs -t 40
+python predict.py -d allstate -t 5
+python predict.py -d allstate -t 10
+python predict.py -d allstate -t 20
+python predict.py -d allstate -t 40
 python predict.py -d covtype -t 5
 python predict.py -d covtype -t 10
 python predict.py -d covtype -t 20

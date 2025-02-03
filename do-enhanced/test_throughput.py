@@ -5,6 +5,7 @@ import pandas as pd
 import argparse
 from sklearn.metrics import accuracy_score
 from utils import *
+import numpy as np
 
 @timer
 def predict(booster, dtest):
@@ -17,11 +18,6 @@ def predict_all(dataset, max_depth_list, num_rounds_list, data_size_list):
     initialize_xgboost()
     data_dir = os.path.join(DATA_DIR, dataset)
 
-    dtest = {}
-    for data_size in data_size_list:
-        enc_test_data = os.path.join(data_dir, f"data{data_size}.enc")
-        dtest[f"{data_size}"] = xgb.DMatrix({username: enc_test_data})
-
     booster = {}
     for num_rounds in num_rounds_list:
         booster[f"{num_rounds}"] = {}
@@ -30,13 +26,15 @@ def predict_all(dataset, max_depth_list, num_rounds_list, data_size_list):
             booster[f"{num_rounds}"][f"{max_depth}"] = xgb.Booster(model_file=os.path.join(data_dir, model_name))
     for num_rounds in num_rounds_list:
         for data_size in data_size_list:
+            enc_test_data = os.path.join(data_dir, f"data{data_size}.enc")
+            dtest = xgb.DMatrix({username: enc_test_data})
             for max_depth in max_depth_list:
                 with open(LOG_FILE, 'a') as file:
                     file.write(50*'+'+'\n')
                     file.write("dataset: "+dataset+"\n")
                     file.write(f"num_trees:{num_rounds}\ndata_size:{data_size}\ndepth:{max_depth}\n")
                 time_start = time.time()
-                preds = predict(booster=booster[f"{num_rounds}"][f"{max_depth}"], dtest=dtest[f"{data_size}"])
+                preds = predict(booster=booster[f"{num_rounds}"][f"{max_depth}"], dtest=dtest)
                 time_end = time.time()
                 time_response = time_end - time_start
                 print(preds)
@@ -61,26 +59,17 @@ def main():
 
     # Add arguments
     parser.add_argument('-d', '--dataset', type=str, help="datset used", default="higgs")
-    parser.add_argument('-t', '--treesnum', type=int, help="number of trees", default=5)
-    parser.add_argument('-D', '--depth', type=int, help="maximum depth", default=0)
+    parser.add_argument('-t', '--treesnum', type=int, help="number of trees", default=20)
+    parser.add_argument('-D', '--depth', type=int, help="maximum depth", default=7)
 
     # Parse the arguments
     args = parser.parse_args()
 
-    if args.depth == 0:
-        depth_list = [2, 3, 4, 5, 6, 7, 8, 9]
-        if args.treesnum == 5:
-            depth_list = [2, 3, 4, 5, 6, 7, 8, 9, 10]
-    else:
-        depth_list = [args.depth]
+    # data_size_list = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000, 20000, 30000, 40000, 50000, 60000, 70000, 80000, 90000, 100000]
+    data_size_list = [i for i in range(10000, 30000, 1000)]
+    # data_size_list = [100]
 
-
-    predict_all(dataset=args.dataset, max_depth_list=depth_list, num_rounds_list=[args.treesnum], data_size_list=[1000, 10000, 100000])
+    predict_all(dataset=args.dataset, max_depth_list=[args.depth], num_rounds_list=[args.treesnum], data_size_list=data_size_list)
 
 if __name__ == "__main__":
     main()
-
-    # predict_all(dataset="allstate", max_depth_list=range(3,11), num_rounds_list=[5], data_size_list=[1000, 10000, 100000])
-    # predict_all(dataset="higgs", max_depth_list=[10], num_rounds_list=[5], data_size_list=[1000])
-# [5, 10, 20, 40]
-# [2, 3, 4, 5, 6, 7, 8, 9, 10]

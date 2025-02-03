@@ -90,10 +90,11 @@ def encrypt_file(data_dir, file_list, key_file=KEY_FILE, verbose=True):
         print("Data encrypted.")
 
 if __name__ == "__main__":
+    out_data_size = [i for i in range(10000, 30000, 1000)]
     preprocess_higgs_data(
         data_dir=HIGGS_DIR, 
         raw_data="HIGGS.csv", 
-        out_data_size=[1000, 10000, 100000],
+        out_data_size=out_data_size,
         column_names=higggs_column_names,
         scaler_type='minmax',
         random_state=42,
