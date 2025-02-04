@@ -1,5 +1,6 @@
 import pandas as pd
 import re
+import numpy as np
 
 # 从文件中读取日志数据
 with open('data/time.log', 'r') as file:
@@ -91,32 +92,41 @@ for entry in log_entries:
 # 构建 DataFrame
 df = pd.DataFrame(records)
 
-# # 保留最新记录（参数完全相同时）
-# df = df.drop_duplicates(subset=['dataset', 'num_trees', 'data_size', 'depth', 'epsilon', 'shuffleMethod', 'algorithm'], keep='first')
-# # 将结果保存到 CSV 文件
-# df.to_csv('data/output_log_records.csv', index=False)
+# extract the last record for each group of parameters and save it to a CSV file
+def handle_records_last(df):
+    # 保留最新记录（参数完全相同时）
+    df = df.drop_duplicates(subset=['dataset', 'num_trees', 'data_size', 'depth', 'epsilon', 'shuffleMethod', 'algorithm'], keep='first')
+    # 将结果保存到 CSV 文件
+    df.to_csv('data/output_log_records.csv', index=False)
 
+# extract the mean record for each group of parameters and save it to a CSV file
+def handle_records_mean(df):
+    # 将空值填充为 'missing'
+    df.fillna(value=0, inplace=True)
 
-# 计算每个组的记录数，并将其作为一个新的列 'count'
-df['count'] = df.groupby(['dataset', 'num_trees', 'data_size', 'depth', 'epsilon', 'shuffleMethod', 'algorithm'])['time_response'].transform('size')
+    # 计算每个组的记录数，并将其作为一个新的列 'count'
+    df['count'] = df.groupby(['dataset', 'num_trees', 'data_size', 'depth', 'epsilon', 'shuffleMethod', 'algorithm'])['time_response'].transform('size')
 
-# 对于参数完全相同的记录，计算其他列的平均值，并增加一列表示有多少条记录
-df_grouped  = df.groupby(['dataset', 'num_trees', 'data_size', 'depth', 'epsilon', 'shuffleMethod', 'algorithm']).agg(
-    {
-        'AddDummy': 'mean',
-        'PostProcess': 'mean',
-        'PredictDMatrixDO': 'mean',
-        'PredictNO': 'mean',
-        'shuffle': 'mean',
-        'PredictBatch': 'mean',
-        'time_response': 'mean',
-        'count': 'first'  # 保留每个组的记录数
-    }
-).reset_index()
+    # 对于参数完全相同的记录，计算其他列的平均值，并增加一列表示有多少条记录
+    df_grouped  = df.groupby(['dataset', 'num_trees', 'data_size', 'depth', 'epsilon', 'shuffleMethod', 'algorithm']).agg(
+        {
+            'AddDummy': 'mean',
+            'PostProcess': 'mean',
+            'PredictDMatrixDO': 'mean',
+            'PredictNO': 'mean',
+            'shuffle': 'mean',
+            'PredictBatch': 'mean',
+            'time_response': 'mean',
+            'count': 'first'  # 保留每个组的记录数
+        }
+    ).reset_index()
 
-# # 增加一列表示有多少条记录
-# df_grouped['count'] = df.groupby(['dataset', 'num_trees', 'data_size', 'depth', 'epsilon', 'shuffleMethod', 'algorithm']).size().reset_index(name='count')['count']
+    # 将 'epsilon', 'shuffleMethod', 'AddDummy', 'PostProcess', 'PredictDMatrixDO', 'PredictNO', 'shuffle' 列中的 0 值替换为空值
+    columns_to_replace = ['epsilon', 'shuffleMethod', 'AddDummy', 'PostProcess', 'PredictDMatrixDO', 'PredictNO', 'shuffle']
+    df_grouped[columns_to_replace] = df_grouped[columns_to_replace].replace(0, np.nan)
 
-# 将结果保存到 CSV 文件
-df_grouped.to_csv('data/output_log_records.csv', index=False)
+    # 将结果保存到 CSV 文件
+    df_grouped.to_csv('data/output_log_records.csv', index=False)
 
+handle_records_last(df)
+# handle_records_mean(df)
