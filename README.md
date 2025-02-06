@@ -4,29 +4,8 @@ DOXIE is a secure XGBoost inference system that strikes a balance between access
 
 DOXIE's main test code is located in the `./do-enhanced` folder.
 
-The main implementation of the DOXIE algorithm can be found in the file `./include/enclave/dpobl_operator.h` and `./enclave/src/predictor/cpu_predictor.cc`
-
-## Direcitory Structure
-```
-.
-├── do-enhanced
-│   ├── data/                            # data files for testing and training
-│   |   ├── time.log                     # log file for inference results
-│   |   ├── output_log_records.csv       # final result file
-│   ├── results/                         # deprecated, not used
-│   ├── scripts/                         # deprecated, not used
-│   ├── batch_script.sh                  # batch test script to test results under various parameters in one go
-│   ├── build_project.sh                 # build script for DOXIE, (--DO, --O and none)
-│   ├── preprocess_{data}.py             # data preprocessing script for {data} dataset
-│   ├── train.py                         # test code for training
-│   ├── predict.py                       # test code for inference, predict results was written to data/time.log
-|   ├── handle_log.py                    # script to handle the log file and generate the final result to output_log_records.csv
-│   ├── encrypt.py                       # script to encrypt the preprocessed data
-│   ├── utils.py                         # utility functions
-```
-
-## Test Procedure
-* Install.
+## Setting Environment
+* Installation.
 
     see [Installation](#installation)
 
@@ -35,23 +14,31 @@ The main implementation of the DOXIE algorithm can be found in the file `./inclu
     ```sh
     pip install --upgrade pip
     pip install -r requirements.txt
-
     ```
 
-* Build XGBoost with DOXIE and install the Python package.
+## Preprecessing
+* Build XGBoost with DOXIE and install the Python package. You can compile and install the oblivious version of the XGBoost package using the `--O` parameter, and the non-oblivious version without any parameters.
 
     ```sh
     cd do-enhanced
     ./build_project.sh --DO
     ```
 
-* train model if needed.
+* Process the dataset if needed. In `do-enhanced/data/higgs/`, `data1000.enc, data10000.enc, data100000.enc` have been avaliable for higgs dataset with 1k, 10k, 100k records respectively. To use higgs dataset with other sizes, download the dataset from [HIGGS](https://archive.ics.uci.edu/dataset/280/higgs), then run
+
+    ```sh
+    cd do-enhanced
+    python3 process_dataset.py --dataset higgs --size 100000
+    ```
+    
+* Train model if needed.
 
     ```sh
     cd do-enhanced
     python3 train.py
     ```
 
+## Running Experiments
 * test using the test code in `./do-enhanced` folder.
 
     ```sh
