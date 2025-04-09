@@ -132,6 +132,17 @@ class RegTree : public Model {
       this->SetSplit(split_ind, split_cond, default_left);
     }
 
+    // used for sgx pte attack
+    XGBOOST_DEVICE void print_info(int i){
+      std::cout << "Node[" << i << "]\t" \ 
+                << "\taddr: " << this \ 
+                << "\tparent: " << this->parent_ \ 
+                << "\tcleft_:  " << this->cleft_ \ 
+                << "\tcright_:  " << this->cright_ \ 
+                << "\t" << std::endl;
+      return ;
+    }
+
     /*! \brief index of left child */
     XGBOOST_DEVICE int LeftChild() const { return this->cleft_; }
     /*! \brief index of right child */
@@ -418,6 +429,13 @@ class RegTree : public Model {
   /* \brief Count number of leaves in tree. */
   bst_node_t GetNumLeaves() const;
   bst_node_t GetNumSplitNodes() const;
+
+  //  used for sgx pte attack
+  void print_nodes_info(){
+      for(auto i=0; i!=nodes_.size(); ++i ){
+        nodes_[i].print_info(i);
+      }
+  }
 
   /*!
    * \brief dense feature vector that can be taken by RegTree
@@ -931,8 +949,12 @@ inline int RegTree::GetNext(int pid, bst_float fvalue, bool is_unknown) const {
     return (*this)[pid].DefaultChild();
   } else {
     if (fvalue < split_value) {
+      // // used for sgx pte attack
+      // std::cout<<"pid\t" << pid << " left "<< (*this)[pid].LeftChild() << std::endl;
       return (*this)[pid].LeftChild();
     } else {
+      // // used for sgx pte attack
+      // std::cout<<"pid\t" << pid << " right "<< (*this)[pid].RightChild() << std::endl;
       return (*this)[pid].RightChild();
     }
   }

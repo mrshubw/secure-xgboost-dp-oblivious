@@ -42,6 +42,9 @@ bst_float PredValue(const SparsePage::Inst& inst,
   bst_float psum = 0.0f;
   p_feats->Fill(inst);
   for (size_t i = tree_begin; i < tree_end; ++i) {
+    // // used for sgx pte attack
+    // trees[i]->print_nodes_info();
+    
     if (tree_info[i] == bst_group) {
 #ifdef __ENCLAVE_OBLIVIOUS__
 #ifdef __ENCLAVE_DPOBLIVIOUS__
@@ -168,6 +171,10 @@ void PredictBatchKernel(DataView batch, std::vector<bst_float>* out_preds,
   if (monitor_ != nullptr) monitor_->Start(__func__);
   auto& thread_temp = *p_thread_temp;
   int32_t const num_group = model.learner_model_param->num_output_group;
+
+  // // used for sgx pte attack
+  // std::cout << "tree_info address " << (void *)&model.tree_info[0] << std::endl;
+  // std::cout << "PredValue address " << (void *)PredValue << std::endl;
 
   std::vector<bst_float>& preds = *out_preds;
   CHECK_EQ(model.param.size_leaf_vector, 0)
