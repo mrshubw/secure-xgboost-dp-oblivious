@@ -71,8 +71,14 @@ def run_commands():
                 for t in t_values:
                     subprocess.run(['python', 'predict.py', '-d', dataset, '-t', str(t)])
 
-def test_throughput():
+# test the cost of Oblivious, DOXIE and non-Oblivious with different epsilon, shuffle method, dataset, data size, tree depth and tree number.
+def experiment_main(iterations=10):
+    for i in range(iterations):
+        run_commands()
+        run_commands_O()
+        run_commands_DO()
 
+def experiment_throughput():
     # 定义数据集和不同的 t 值
     datasets = ['higgs']
     t_values = [20]
@@ -111,11 +117,52 @@ def test_throughput():
             for depth in depth_list:
                 subprocess.run(['python', 'test_throughput.py', '-d', dataset, '-t', str(t), '-D', str(depth)])
 
+
+def test_cost(datasets = ['higgs'],
+            t_values = [20],
+            depth_list = [7],
+            epsilon_list = [0.1, 1.0, 10.0],
+            shuffle_method_list = ["BitonicShuffler"]):
+    
+    # 先构建项目
+    subprocess.run(['./build_project.sh', '--DO'])
+    # select epsilon and shuffle method
+    for shuffle_method in shuffle_method_list:
+        for epsilon in epsilon_list:
+            # modify config file to set epsilon and shuffle method
+            with open('data/config.txt', 'w') as f:
+                f.write(f"epsilon={epsilon}\n")
+                f.write(f"shuffleMethod={shuffle_method}\n")
+
+            # 迭代数据集和 t 值，执行预测命令
+            for dataset in datasets:
+                for t in t_values:
+                    for depth in depth_list:
+                        subprocess.run(['python', 'predict.py', '-d', dataset, '-t', str(t), '-D', str(depth)])
+    
+    subprocess.run(['./build_project.sh', '--O'])
+    # 迭代数据集和 t 值，执行预测命令
+    for dataset in datasets:
+        for t in t_values:
+            for depth in depth_list:
+                subprocess.run(['python', 'predict.py', '-d', dataset, '-t', str(t), '-D', str(depth)])
+    subprocess.run(['./build_project.sh'])
+    # 迭代数据集和 t 值，执行预测命令
+    for dataset in datasets:
+        for t in t_values:
+            for depth in depth_list:
+                subprocess.run(['python', 'predict.py', '-d', dataset, '-t', str(t), '-D', str(depth)])
+
+def experiment_NLP():
+    test_cost(t_values=[500],depth_list=[8])
+
+def experiment_random_forest():
+    test_cost(t_values=[100], depth_list=[8])
+
 if __name__ == '__main__':
-    for i in range(9):
-        run_commands()
-        run_commands_O()
-        run_commands_DO()
-    # test_throughput()
+    # experiment_main()
+    # experiment_throughput()
+    experiment_NLP()
+    # experiment_random_forest()
 
     # subprocess.run(['python', 'handle_log.py'])

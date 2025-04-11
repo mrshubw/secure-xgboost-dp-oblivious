@@ -5,7 +5,7 @@ import os
 import pandas as pd
 from sklearn.metrics import accuracy_score
 from utils import *
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 def load_data(username, enc_training_data, enc_test_data):
     # Load training data
@@ -81,5 +81,5 @@ if __name__ == "__main__":
             }
     params = {"higgs": params_higgs, "allstate": params_allstate, "covtype": params_covtype}
     data_dir = os.path.join(DATA_DIR, dataset)
-    train_multi_model(data_dir, max_depth_list=[2, 3, 4, 5, 6, 7, 8, 9], num_rounds_list=[20], params=params[dataset])
+    train_multi_model(data_dir, max_depth_list=[8], num_rounds_list=[500], params=params[dataset])
 

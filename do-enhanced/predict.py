@@ -3,7 +3,7 @@ import securexgboost as xgb
 import os
 import pandas as pd
 import argparse
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, roc_auc_score
 from utils import *
 
 @timer
@@ -39,21 +39,30 @@ def predict_all(dataset, max_depth_list, num_rounds_list, data_size_list):
                 preds = predict(booster=booster[f"{num_rounds}"][f"{max_depth}"], dtest=dtest[f"{data_size}"])
                 time_end = time.time()
                 time_response = time_end - time_start
-                print(preds)
+                # print(preds)
                 with open(LOG_FILE, 'a') as file:
                     file.write(f"time_response:{time_response}\n")
+
+                # evals(preds, os.path.join(data_dir, f"data{data_size}.txt"), log_file=LOG_FILE)
     # with open(LOG_FILE, 'a') as file:
     #     file.write("dataset: "+dataset+"\n")
     #     file.write("=========================\n")
 
-def evals(preds, test_labels_file):
+def evals(preds, test_labels_file, log_file=None):
     test_data = pd.read_csv(test_labels_file, header=None, sep=" ", usecols=[0], names=["label"])
     y_test = test_data["label"].values
     threshold = 0.5
     ypred_binary = (preds > threshold).astype(int)
     accuracy = accuracy_score(y_test, ypred_binary)
+    auc = roc_auc_score(y_test, preds)
     print(f"Model accuracy on test set: {accuracy * 100:.2f}%")
-    return accuracy
+    print(f"Model AUC on test set: {auc * 100:.2f}%")
+
+    if log_file:
+        with open(log_file, 'a') as file:
+            file.write(f"accuracy:{accuracy}\n")
+            file.write(f"AUC:{auc}\n")
+    return accuracy, auc
 
 def main():
     # Create the parser
@@ -81,6 +90,6 @@ if __name__ == "__main__":
     main()
 
     # predict_all(dataset="allstate", max_depth_list=range(3,11), num_rounds_list=[5], data_size_list=[1000, 10000, 100000])
-    # predict_all(dataset="higgs", max_depth_list=[10], num_rounds_list=[5], data_size_list=[1000])
+    # predict_all(dataset="higgs", max_depth_list=[8], num_rounds_list=[500], data_size_list=[1000])
 # [5, 10, 20, 40]
 # [2, 3, 4, 5, 6, 7, 8, 9, 10]

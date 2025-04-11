@@ -1,6 +1,6 @@
 import os
-import matplotlib.pyplot as plt
-import seaborn as sns
+# import matplotlib.pyplot as plt
+# import seaborn as sns
 
 HOME_DIR = os.path.abspath('') + "/../"
 CURRENT_DIR = os.path.abspath('')
@@ -55,15 +55,15 @@ def timer(func):
     return wrapper
 
 
-def data_summary(data):
-    plt.hist(data['label'])
-    plt.xlabel('label')
-    plt.ylabel('Count')
-    plt.title('Target Distribution')
-    # plt.show()
+# def data_summary(data):
+#     plt.hist(data['label'])
+#     plt.xlabel('label')
+#     plt.ylabel('Count')
+#     plt.title('Target Distribution')
+#     # plt.show()
 
-    corr_matrix = data.corr()
-    plt.figure(figsize=(10, 8))
-    sns.heatmap(corr_matrix, annot=True, cmap='coolwarm')
-    plt.title('Correlation Matrix')
-    plt.show()
+#     corr_matrix = data.corr()
+#     plt.figure(figsize=(10, 8))
+#     sns.heatmap(corr_matrix, annot=True, cmap='coolwarm')
+#     plt.title('Correlation Matrix')
+#     plt.show()
