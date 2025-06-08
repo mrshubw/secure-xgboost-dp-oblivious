@@ -114,4 +114,5 @@ demo/enclave/distributed/hosts.config
 python-package/securexgboost/rpc/*pb2*
 
 # pte attack
-SGX_PTE-Attack
+# SGX_PTE-Attack
+SGX_PTE-Attack/*/linux*

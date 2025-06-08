@@ -1,0 +1,145 @@
+diff --git a/enclave/include/enclave_context.h b/enclave/include/enclave_context.h
+index fd90293..68b58a5 100644
+--- a/enclave/include/enclave_context.h
++++ b/enclave/include/enclave_context.h
+@@ -481,7 +481,11 @@ class EnclaveContext {
+      * This function is only run by the master enclave, assuming that remote attestation is done before anything else
+      */
+     bool generate_symm_key() {
+-      generate_random(m_symm_key, CIPHER_KEY_SIZE);
++      // generate_random(m_symm_key, CIPHER_KEY_SIZE);
++        
++        // In the DP Oblivious experiment, in order to separate training from inference, the key is forced to be 0. 
++        // Notice, this is not secure.
++        memset(m_symm_key, 0, CIPHER_KEY_SIZE);
+     }
+ 
+     /**
+diff --git a/enclave/src/predictor/cpu_predictor.cc b/enclave/src/predictor/cpu_predictor.cc
+index 85e523f..7f9a291 100644
+--- a/enclave/src/predictor/cpu_predictor.cc
++++ b/enclave/src/predictor/cpu_predictor.cc
+@@ -35,11 +35,15 @@ bst_float PredValue(const SparsePage::Inst &inst,
+                     const std::vector<int> &tree_info, int bst_group,
+                     RegTree::FVec *p_feats, unsigned tree_begin,
+                     unsigned tree_end) {
++  // std::cout<<"PredValue"<<std::endl;
+   bst_float psum = 0.0f;
+   p_feats->Fill(inst);
+   for (size_t i = tree_begin; i < tree_end; ++i) {
++    trees[i]->print_nodes_info();
++    // std::cout<< "PredValue offset:" << (void*)(PredValue) << std::endl;
+     if (tree_info[i] == bst_group) {
+ #ifdef __ENCLAVE_OBLIVIOUS__
++    // std::cout<<"__ENCLAVE_OBLIVIOUS__"<<std::endl;
+       if (common::ObliviousEnabled()) {
+         auto leaf_value = trees[i]->OGetLeafValue(*p_feats);
+         if (common::ObliviousDebugCheckEnabled()) {
+@@ -53,6 +57,7 @@ bst_float PredValue(const SparsePage::Inst &inst,
+         psum += (*trees[i])[tid].LeafValue();
+       }
+ #else
++    // std::cout<<"not OBLIVIOUS"<<std::endl;
+       int tid = trees[i]->GetLeafIndex(*p_feats);
+       psum += (*trees[i])[tid].LeafValue();
+ #endif
+@@ -129,6 +134,9 @@ void PredictBatchKernel(DataView batch, std::vector<bst_float> *out_preds,
+   auto& thread_temp = *p_thread_temp;
+   int32_t const num_group = model.learner_model_param->num_output_group;
+ 
++  std::cout << "tree_info address " << (void *)&model.tree_info[0] << std::endl;
++  std::cout << "PredValue address " << (void *)PredValue << std::endl;
++  // std::cout<<"PredictBatchKernel"<<std::endl;
+   std::vector<bst_float> &preds = *out_preds;
+   CHECK_EQ(model.param.size_leaf_vector, 0)
+       << "size_leaf_vector is enforced to 0 so far";
+@@ -186,6 +194,7 @@ class CPUPredictor : public Predictor {
+   void PredictDMatrix(DMatrix *p_fmat, std::vector<bst_float> *out_preds,
+                       gbm::GBTreeModel const &model, int32_t tree_begin,
+                       int32_t tree_end) {
++    // std::cout<<"PredictDMatrix"<<std::endl;
+     std::lock_guard<std::mutex> guard(lock_);
+     const int threads = omp_get_max_threads();
+     InitThreadTemp(threads, model.learner_model_param->num_feature, &this->thread_temp_);
+@@ -238,6 +247,7 @@ class CPUPredictor : public Predictor {
+   void PredictBatch(DMatrix* dmat, PredictionCacheEntry* predts,
+                     const gbm::GBTreeModel& model, int tree_begin,
+                     uint32_t const ntree_limit = 0) override {
++    // std::cout<<"CPUPredictor::PredictBatch"<<std::endl;
+     // tree_begin is not used, right now we just enforce it to be 0.
+     CHECK_EQ(tree_begin, 0);
+     auto* out_preds = &predts->predictions;
+diff --git a/enclave/xgboost.edl b/enclave/xgboost.edl
+index 6b4200d..06acfd1 100644
+--- a/enclave/xgboost.edl
++++ b/enclave/xgboost.edl
+@@ -1,5 +1,6 @@
+ enclave {
+     from "openenclave/edl/syscall.edl" import *;
++    from "openenclave/edl/logging.edl" import *;
+     from "platform.edl" import *;
+ 
+     include "xgboost/c_api.h"
+diff --git a/enclave/xgboost_mc.edl b/enclave/xgboost_mc.edl
+index 976f375..7137358 100644
+--- a/enclave/xgboost_mc.edl
++++ b/enclave/xgboost_mc.edl
+@@ -1,5 +1,6 @@
+ enclave {
+     from "openenclave/edl/syscall.edl" import *;
++    from "openenclave/edl/logging.edl" import *;
+     from "platform.edl" import *;
+ 
+     include "xgboost/c_api_mc.h"
+diff --git a/include/xgboost/tree_model.h b/include/xgboost/tree_model.h
+index 8245540..e9af2a0 100644
+--- a/include/xgboost/tree_model.h
++++ b/include/xgboost/tree_model.h
+@@ -131,6 +131,16 @@ class RegTree : public Model {
+       this->SetSplit(split_ind, split_cond, default_left);
+     }
+ 
++    XGBOOST_DEVICE void print_info(int i){
++      std::cout << "Node[" << i << "]\t" \ 
++                << "\taddr: " << this \ 
++                << "\tparent: " << this->parent_ \ 
++                << "\tcleft_:  " << this->cleft_ \ 
++                << "\tcright_:  " << this->cright_ \ 
++                << "\t" << std::endl;
++      return ;
++    }
++
+     /*! \brief index of left child */
+     XGBOOST_DEVICE int LeftChild() const {
+       return this->cleft_;
+@@ -446,6 +456,11 @@ class RegTree : public Model {
+   bst_node_t GetNumLeaves() const;
+   bst_node_t GetNumSplitNodes() const;
+ 
++  void print_nodes_info(){
++      for(auto i=0; i!=nodes_.size(); ++i ){
++        nodes_[i].print_info(i);
++      }
++  }
+   /*!
+    * \brief dense feature vector that can be taken by RegTree
+    * and can be construct from sparse feature vector.
+@@ -671,6 +686,7 @@ inline bool RegTree::FVec::IsMissing(size_t i) const {
+ }
+ 
+ inline int RegTree::GetLeafIndex(const RegTree::FVec& feat) const {
++  // std::cout << "\nGetLeafIndex inner\n" << std::endl;
+   bst_node_t nid = 0;
+   while (!(*this)[nid].IsLeaf()) {
+     unsigned split_index = (*this)[nid].SplitIndex();
+@@ -686,8 +702,10 @@ inline int RegTree::GetNext(int pid, bst_float fvalue, bool is_unknown) const {
+     return (*this)[pid].DefaultChild();
+   } else {
+     if (fvalue < split_value) {
++      std::cout<<"pid\t" << pid << " left "<< (*this)[pid].LeftChild() << std::endl;
+       return (*this)[pid].LeftChild();
+     } else {
++      std::cout<<"pid\t" << pid << " right "<< (*this)[pid].RightChild() << std::endl;
+       return (*this)[pid].RightChild();
+     }
+   }
