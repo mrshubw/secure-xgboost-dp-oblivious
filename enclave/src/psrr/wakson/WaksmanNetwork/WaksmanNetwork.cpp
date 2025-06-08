@@ -1,6 +1,6 @@
-#ifdef ENABLE_WAKSMAN_SHUFFLE 
 
 #include "psrr/wakson/WaksmanNetwork/WaksmanNetwork.hpp"
+#ifdef ENABLE_WAKSMAN_SHUFFLE 
 
 // Count the number of input and output switches, and the number of
 // WaksmanSubnetworks, used to handle N items.  Add the numbers to the

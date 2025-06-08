@@ -159,10 +159,15 @@ def experiment_NLP():
 def experiment_random_forest():
     test_cost(t_values=[100], depth_list=[8])
 
+def experiment_shufflers():
+    test_cost(t_values=[100], depth_list=[8], shuffle_method_list=["BitonicShuffler","RecursiveShuffler","BubbleShuffler"])
+    
+
 if __name__ == '__main__':
     # experiment_main()
     # experiment_throughput()
-    experiment_NLP()
+    # experiment_NLP()
     # experiment_random_forest()
+    experiment_shufflers()
 
-    # subprocess.run(['python', 'handle_log.py'])
+    subprocess.run(['python', 'handle_log.py'])

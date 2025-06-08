@@ -60,16 +60,38 @@ namespace obl
         return creator_iter->second();
     }
 
-    class BitonicShuffler : public OShufflerWithIndex
+    class OShufflerUsingSorter : public OShufflerWithIndex
+    {
+    private:
+        /* data */
+        void shuffleKernel(uint8_t *buf, size_t N, size_t block_size) override;
+
+        virtual void sort(uint8_t *buf, size_t N, size_t block_size, bool ascending) = 0;
+    public:
+    };
+
+    class BitonicShuffler : public OShufflerUsingSorter
     {
     public:
         static std::string ClassName() {
             return "BitonicShuffler";
         }
-        // static bool isRegistered;
     private:
+        // static bool isRegistered;
 
-        void shuffleKernel(uint8_t *buf, size_t N, size_t block_size) override;
+        void sort(uint8_t *buf, size_t N, size_t block_size, bool ascending) override;
+    };
+
+    class BubbleShuffler : public OShufflerUsingSorter
+    {
+    public:
+        static std::string ClassName() {
+            return "BubbleShuffler";
+        }
+    private:
+        // static bool isRegistered;
+
+        void sort(uint8_t *buf, size_t N, size_t block_size, bool ascending) override;
     };
 
     class RecursiveShuffler : public OShufflerWithIndex
@@ -78,11 +100,13 @@ namespace obl
         static std::string ClassName() {
             return "RecursiveShuffler";
         }
-        // static bool isRegistered;
     private:
+        // static bool isRegistered;
 
         void shuffleKernel(uint8_t *buf, size_t N, size_t block_size) override;
     };
+
+    // #define ENABLE_WAKSMAN_SHUFFLE
 
     #ifdef ENABLE_WAKSMAN_SHUFFLE
 
@@ -97,7 +121,7 @@ namespace obl
         void inverseShuffle(uint8_t *buf, size_t block_size, uint8_t *out_buf, size_t offset=0) override;
 
     private:
-        static bool isRegistered;
+        // static bool isRegistered;
 
         std::unique_ptr<WaksmanNetwork> wnet; // WaksmanShuffle需要的网络结构
     };

@@ -162,7 +162,7 @@ namespace obl
         memcpy(out_buf, temp_buf + offset * block_size, (idx.size() - offset) * block_size);
     }
 
-    void BitonicShuffler::shuffleKernel(uint8_t *buf, size_t N, size_t block_size){
+    void OShufflerUsingSorter::shuffleKernel(uint8_t *buf, size_t N, size_t block_size){
         // 添加随机tag
         TagType *tags = new TagType[N];
         PRB_buffer::getInstance().getBulkRandomBytes(reinterpret_cast<uint8_t *>(tags), N * sizeof(TagType));
@@ -170,13 +170,23 @@ namespace obl
         block_size = attachTags(buf, N, block_size, tags, tags_buf);
 
         // 以tag为key，block为单位，进行bitonic排序
-        BitonicSort<TagType>(tags_buf, N, block_size, true);
+        sort(tags_buf, N, block_size, true);
 
         // 移除tag
         block_size = detachTags(tags_buf, N, block_size, buf);
 
         delete[] tags;
         delete[] tags_buf;
+    }
+
+    void BitonicShuffler::sort(uint8_t *buf, size_t N, size_t block_size, bool ascending){
+        // 以tag为key，block为单位，进行bitonic排序
+        BitonicSort<TagType>(buf, N, block_size, true);
+
+    }
+
+    void BubbleShuffler::sort(uint8_t *buf, size_t N, size_t block_size, bool ascending){
+        BubbleSort<TagType>(buf, N, block_size, true);
     }
 
     void RecursiveShuffler::shuffleKernel(uint8_t *buf, size_t N, size_t block_size){
@@ -259,10 +269,20 @@ namespace obl
         if (method == "BitonicShuffler") 
         {
             return std::unique_ptr<OShuffler>(new BitonicShuffler());
+        } else if (method == "BubbleShuffler") 
+        {
+            return std::unique_ptr<OShuffler>(new BubbleShuffler());
         } else if (method == "RecursiveShuffler") 
         {
             return std::unique_ptr<OShuffler>(new RecursiveShuffler());
+        } else 
+        
+    #ifdef ENABLE_WAKSMAN_SHUFFLE
+        if (method == "WaksmanShuffler") 
+        {
+            return std::unique_ptr<OShuffler>(new WaksmanShuffler());
         } else
+    #endif // ENABLE_WAKSMAN_SHUFFLE
         {
             std::cout << "No such shuffler method: " << method << std::endl;
             return nullptr;

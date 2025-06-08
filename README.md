@@ -39,12 +39,9 @@ DOXIE's main test code is located in the `./do-enhanced` folder.
     ```
 
 ## Running Experiments
-* Modify the code in `run_experiment.py` to select different functions prefixed with `experiment` in order to run different experiments.
+* In the `do-enhanced` folder, the `run_experiment.py` script runs the Non-Oblivious, DOXIE, and Oblivious inference algorithms under various experimental settings, including dataset, data size, number of trees, tree depth, privacy budget, and shuffle methods. Each configuration is run 10 times to ensure result stability. It took us two days to complete all experiments and collect the results.
 
-    ```sh
-    cd do-enhanced
-    python3 run_experiment.py
-    ```
+* You can modify the functions called within the `run_experiment.py` script to run different experiments. For example, `experiment_throughput` measures the latency and throughput of the DOXIE algorithm; `experiment_random_forest` evaluates DOXIE’s performance when using random forests; and `experiment_shufflers` analyzes the impact of different shuffling methods on DOXIE’s performance.
 
 * Handle the experiment log to get the test result after running the test scripts.
 

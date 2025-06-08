@@ -87,9 +87,9 @@ def main():
     predict_all(dataset=args.dataset, max_depth_list=depth_list, num_rounds_list=[args.treesnum], data_size_list=[1000, 10000, 100000])
 
 if __name__ == "__main__":
-    main()
+    # main()
 
     # predict_all(dataset="allstate", max_depth_list=range(3,11), num_rounds_list=[5], data_size_list=[1000, 10000, 100000])
-    # predict_all(dataset="higgs", max_depth_list=[8], num_rounds_list=[500], data_size_list=[1000])
+    predict_all(dataset="higgs", max_depth_list=[9], num_rounds_list=[40], data_size_list=[100000])
 # [5, 10, 20, 40]
 # [2, 3, 4, 5, 6, 7, 8, 9, 10]

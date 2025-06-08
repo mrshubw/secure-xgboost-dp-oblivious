@@ -1,6 +1,7 @@
 #ifndef __WAKSMANNETWORK_HPP__
 #define __WAKSMANNETWORK_HPP__
 
+#include "../aes.hpp"
 #ifdef ENABLE_WAKSMAN_SHUFFLE 
 
 #include <unordered_map>
@@ -12,7 +13,6 @@
 // #include "../Enclave_globals.h"
 #include "../utils.hpp"
 #include "../RecursiveShuffle/RecursiveShuffle.hpp"
-#include "../aes.hpp"
 
 typedef __uint128_t randkey_t;
 #define FPERM_OSWAP_STYLE OSWAP_8_16X // OSwap_Style for forward perm (consistent w/ randkey_t)

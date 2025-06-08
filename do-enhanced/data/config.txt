@@ -1,2 +1,2 @@
-epsilon=0.2
-shuffleMethod=BitonicShuffler
+epsilon=10.0
+shuffleMethod=BubbleShuffler
