@@ -116,4 +116,4 @@ python-package/securexgboost/rpc/*pb2*
 # pte attack
 # SGX_PTE-Attack
 SGX_PTE-Attack/*/linux*
-SGX_PTE-Attack/simple_test/log_*.txt
+SGX_PTE-Attack/simple_test/log*.txt
