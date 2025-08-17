@@ -47,12 +47,13 @@ long gsgx_ioctl_spy_wait(struct file *filep, unsigned int cmd,
                     unsigned long arg)
 {
     // while(!spy_ready && spy_stop==0);
-        // pr_info("gsgx-spy: waiting....");
+    //     // pr_info("gsgx-spy: waiting....");
 
-    long long max_wait = 10*1e9; // 10s
-    while((--max_wait !=0)&& !spy_ready && spy_stop==0);
-    if(max_wait == 0){
-        pr_info("gsgx-spy: wait for too long, failed");
+    long long max_wait = 10*1e9; // 1 second
+    while((--max_wait != 0) && !spy_ready && spy_stop==0);
+        // pr_info("gsgx-spy: waiting....");
+    if (max_wait == 0){
+        pr_info("gsgx-spy: waiting for spy thread (gsgx_ioctl_spy_wait) to finish, but timeout reached\n");
     }
 
     return 0;
@@ -151,7 +152,13 @@ void gsgx_spy_thread(struct gsgx_spy_info *spy_info)
                 if (delta > CONFIG_CLFLUSH_THRESHOLD && delta < CONFIG_CLFLUSH_MAX) break;
             }
         #else
-            while(!spy_stop && !ACCESSED(monitor_pte_pt)) ;
+            // while(!spy_stop && !ACCESSED(monitor_pte_pt)) ;
+            long long max_wait_monitor_pte = 10*1e9; // 1 second
+            while((--max_wait_monitor_pte != 0) && !spy_stop && !ACCESSED(monitor_pte_pt));
+            if (max_wait_monitor_pte == 0){
+                pr_info("gsgx-spy: waiting for PTE access, but timeout reached\n");
+                break;
+            }
         #endif
 #if 0
         int cntr = 0;
@@ -172,7 +179,13 @@ void gsgx_spy_thread(struct gsgx_spy_info *spy_info)
                 &victim_ipi_handler, NULL, /*wait=*/0);
         #endif
 	ipis++;
-        while(!victim_ready);
+        // while(!victim_ready);
+        long long victim_ready_wait = 10*1e9; // 1 second
+        while((--victim_ready_wait != 0) && !victim_ready);
+        if (victim_ready_wait == 0){
+            pr_info("gsgx-spy: waiting for victim thread, but timeout reached\n");
+            break;
+        }
 
         // Stop spy thread if more than 500000 ipis have been done, prevents chrashing the TUB machine.
         if (ipis >= 500000)
@@ -265,7 +278,12 @@ void victim_ipi_handler(void *info)
      * Wait for spy thread before resuming enclave.
      */
     victim_ready = 1;
-    while (!spy_ready);
+    // while (!spy_ready);
+    long long max_wait = 10*1e9; // 1 second
+    while((--max_wait != 0) && !spy_ready);
+    if (max_wait == 0){
+        pr_info("gsgx-spy: waiting for spy thread (victim_ipi_handler) to finish, but timeout reached\n");
+    }
     victim_ready = 0;
 }
 

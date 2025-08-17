@@ -957,6 +957,11 @@ class LearnerImpl : public LearnerIO {
     return gbm_->DumpModel(fmap, with_stats, format);
   }
 
+  std::vector<std::string> GetAddressesInfo() override {
+    this->Configure();
+    return gbm_->GetAddressesInfo();
+  }
+
   void UpdateOneIter(int iter, std::shared_ptr<DMatrix> train) override {
     monitor_.Start("UpdateOneIter");
     TrainingObserver::Instance().Update(iter);

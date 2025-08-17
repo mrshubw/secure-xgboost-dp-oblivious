@@ -133,14 +133,10 @@ class RegTree : public Model {
     }
 
     // used for sgx pte attack
-    XGBOOST_DEVICE void print_info(int i){
-      std::cout << "Node[" << i << "]\t" \ 
-                << "\taddr: " << this \ 
-                << "\tparent: " << this->parent_ \ 
-                << "\tcleft_:  " << this->cleft_ \ 
-                << "\tcright_:  " << this->cright_ \ 
-                << "\t" << std::endl;
-      return ;
+    XGBOOST_DEVICE std::string get_address(){
+      std::ostringstream oss;
+      oss <<  "addr: " << this ;
+      return oss.str();
     }
 
     /*! \brief index of left child */
@@ -431,10 +427,12 @@ class RegTree : public Model {
   bst_node_t GetNumSplitNodes() const;
 
   //  used for sgx pte attack
-  void print_nodes_info(){
-      for(auto i=0; i!=nodes_.size(); ++i ){
-        nodes_[i].print_info(i);
-      }
+  std::string GetAddressesInfo(){
+    std::ostringstream oss;
+    for(auto i=0; i!=nodes_.size(); ++i ){
+      oss << "Node[" << i << "] " << nodes_[i].get_address() << "\n";
+    }
+    return oss.str(); 
   }
 
   /*!
@@ -581,6 +579,7 @@ class RegTree : public Model {
    */
   std::string DumpModel(const FeatureMap& fmap, bool with_stats,
                         std::string format) const;
+  std::string GetAddressesInfo() const;
   /*!
    * \brief calculate the mean value for each node, required for feature
    * contributions

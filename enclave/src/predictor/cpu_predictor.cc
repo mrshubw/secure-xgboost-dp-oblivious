@@ -66,6 +66,8 @@ bst_float PredValue(const SparsePage::Inst& inst,
       int tid = trees[i]->GetLeafIndex(*p_feats);
       psum += (*trees[i])[tid].LeafValue();
       // if (monitor_ != nullptr) monitor_->Stop("GetLeafValue");
+      // // used for sgx pte attack
+      // std::cout << "tree " << i << " leaf index: " << tid << std::endl;
 #else
       if (common::ObliviousEnabled()) {
         // if (monitor_ != nullptr) monitor_->Start("OGetLeafValue");
@@ -91,6 +93,9 @@ bst_float PredValue(const SparsePage::Inst& inst,
       int tid = trees[i]->GetLeafIndex(*p_feats);
       psum += (*trees[i])[tid].LeafValue();
       // if (monitor_ != nullptr) monitor_->Stop("GetLeafValue");
+
+      // // used for sgx pte attack
+      // std::cout << "tree " << i << " leaf index: " << tid << std::endl;
 #endif
     }
   }
@@ -174,7 +179,7 @@ void PredictBatchKernel(DataView batch, std::vector<bst_float>* out_preds,
 
   // // used for sgx pte attack
   // std::cout << "tree_info address " << (void *)&model.tree_info[0] << std::endl;
-  // std::cout << "PredValue address " << (void *)PredValue << std::endl;
+  std::cout << "PredValue address " << (void *)PredValue << std::endl;
 
   std::vector<bst_float>& preds = *out_preds;
   CHECK_EQ(model.param.size_leaf_vector, 0)

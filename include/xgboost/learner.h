@@ -206,6 +206,7 @@ class Learner : public Model, public Configurable, public rabit::Serializable {
   virtual std::vector<std::string> DumpModel(const FeatureMap& fmap,
                                              bool with_stats,
                                              std::string format) = 0;
+  virtual std::vector<std::string> GetAddressesInfo() = 0;
 
   virtual XGBAPIThreadLocalEntry& GetThreadLocal() const = 0;
   /*!

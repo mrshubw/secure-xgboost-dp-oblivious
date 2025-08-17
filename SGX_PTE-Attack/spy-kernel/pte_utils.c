@@ -130,7 +130,7 @@ void gsgx_flush(void* p) {
 
 #define A_ADR 0x7ffff56b8ef0
 #define B_ADR 0x7ffff56c8ef0
-#define C_ADR 0x7ffff56d8ef0
+#define C_ADR 0x7fff809fb130
 
 #define MONITOR_ADRS    C_ADR
 #define BASE_ADRS       C_ADR
@@ -144,9 +144,9 @@ void construct_pte_set(spy_pte_set_t *set)
 
 #elif CONFIG_SPY_XGBOOST
 
-#define A_ADR 0x7fff80a084a8
-#define B_ADR 0x7fff80a094a8
-#define C_ADR 0x7fff80a0fdd0
+#define A_ADR 0x7fff40a06000
+#define B_ADR 0x7fff40a07000
+#define C_ADR 0x7fff809fb130
 
 #define MONITOR_ADRS    C_ADR
 #define BASE_ADRS       C_ADR
@@ -154,8 +154,28 @@ void construct_pte_set(spy_pte_set_t *set)
 void construct_pte_set(spy_pte_set_t *set)
 {
     pr_info("gsgx-spy: constructing PTE set for hello world test\n");
-    add_to_pte_set(set, A_ADR);
-    add_to_pte_set(set, B_ADR);
+    // add_to_pte_set(set, A_ADR);
+    // add_to_pte_set(set, B_ADR);
+
+    uint64_t leaf_pages[] = {
+        0x7fff809ea000,
+        0x7fff809eb000,
+        0x7fff809ee000,
+        0x7fff809ef000,
+        0x7fff809f0000,
+        0x7fff809f3000,
+        0x7fff809f4000,
+        0x7fff809f7000,
+        0x7fff809f8000,
+        0x7fff809f9000,
+        0x7fff809fc000,
+        0x7fff809fd000
+    };
+
+    int i=0;
+    for (; i < sizeof(leaf_pages) / sizeof(leaf_pages[0]); ++i) {
+        add_to_pte_set(set, leaf_pages[i]);
+    }
 }
 
 #endif

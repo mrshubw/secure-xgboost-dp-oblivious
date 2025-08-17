@@ -179,6 +179,11 @@ enclave {
         public int enclave_XGBoosterGetAttrNames(
                 [in, string] char* handle,
                 [out] bst_ulong* out_len,
+                [out] char*** out_addresses);
+
+        public int enclave_XGBoosterGetAddressesInfo(
+                [in, string] char* handle,
+                [out] bst_ulong* out_len,
                 [out] char*** out);
 
         public int enclave_XGBoosterLoadModel(

@@ -256,6 +256,9 @@ class GBTree : public GradientBooster {
                                      std::string format) const override {
     return model_.DumpModel(fmap, with_stats, format);
   }
+  std::vector<std::string> GetAddressesInfo() const override {
+    return model_.GetAddressesInfo();
+  }
 
  protected:
   // initialize updater before using them

@@ -55,9 +55,13 @@ def preprocess_covtype(data, size):
         f.write(libsvm_data)
 
 # Function to preprocess Higgs dataset
-def preprocess_higgs(data, size, scaler_type='minmax'):
+def preprocess_higgs(data, size, filename=None, encrypt=True, scaler_type='minmax'):
+    dataset = "higgs"
     # Sample the data
-    data_sampled = data.sample(n=size, random_state=42)
+    if filename is None:
+        data_sampled = data.sample(n=size, random_state=42)
+    else:
+        data_sampled = data.sample(n=size, random_state=int(time.time()))
     
     # Split data into features and labels
     X = data_sampled.drop("label", axis=1)
@@ -76,9 +80,15 @@ def preprocess_higgs(data, size, scaler_type='minmax'):
     # Convert to sparse format and save to text files
     sparse_data = convert_to_sparse_format(pd.DataFrame(X_scaled), y.reset_index(drop=True))
     
-    data_path = os.path.join('data/higgs', f"data{size}.txt")
+    if filename is None:
+        filename = f"data{size}"
+    data_path = os.path.join('data/higgs', filename + ".txt")
     with open(data_path, "w") as train_file:
         train_file.write("\n".join(sparse_data))
+
+    if encrypt:
+        # Encrypt the file
+        xgb.encrypt_file(data_path, os.path.join('data/' + dataset, filename + ".enc"), KEY_FILE)
 
 # Function to convert data to LibSVM format
 def convert_to_libsvm(X, y=None):
@@ -93,30 +103,38 @@ def convert_to_libsvm(X, y=None):
     return libsvm_str
 
 # Main function to handle dataset processing
-def process_dataset(dataset, size):
+def process_dataset(dataset, size, iterations=None):
     if dataset == 'allstate':
         data = pd.read_csv('data/allstate/train_set.csv', dtype={19: str}, low_memory=False)
-        preprocess_allstate(data, size)
     elif dataset == 'covtype':
         data = pd.read_csv('data/covtype/covtype.data', header=None)
         preprocess_covtype(data, size)
     elif dataset == 'higgs':
         data = pd.read_csv('data/higgs/HIGGS.csv', header=None, names=higgs_column_names)
-        preprocess_higgs(data, size)
+        # preprocess_higgs(data, size)
+        if iterations is not None:
+            for i in range(iterations):
+                preprocess_higgs(data, size, filename=f"data{size}_iter{i}")
+        else:
+            preprocess_higgs(data, size)
     else:
         raise ValueError("Unsupported dataset. Choose 'allstate', 'covtype', or 'higgs'.")
     
     
-    data_path = os.path.join('data/' + dataset, f"data{size}.txt")
-    # Encrypt the file
-    xgb.encrypt_file(data_path, os.path.join('data/' + dataset, f"data{size}.enc"), KEY_FILE)
+    # data_path = os.path.join('data/' + dataset, f"data{size}.txt")
+    # # Encrypt the file
+    # xgb.encrypt_file(data_path, os.path.join('data/' + dataset, f"data{size}.enc"), KEY_FILE)
+
+def test():
+    print("Testing dataset processing...")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process datasets.')
     parser.add_argument('--dataset', type=str, required=True, choices=['allstate', 'covtype', 'higgs'],
                         help='Dataset to process: allstate, covtype, or higgs')
     parser.add_argument('--size', type=int, required=True, help='Size of the dataset to process')
+    parser.add_argument('--iterations', type=int, default=None, help='Number of iterations for allstate dataset')
     args = parser.parse_args()
     
-    process_dataset(args.dataset, args.size)
+    process_dataset(args.dataset, args.size, iterations=args.iterations)
     print(f"Dataset {args.dataset} with size {args.size} has been processed.")

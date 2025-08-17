@@ -99,6 +99,18 @@ struct GBTreeModel : public Model {
     }
     return dump;
   }
+  std::vector<std::string> GetAddressesInfo() const {
+    std::vector<std::string> addresses;
+
+    std::ostringstream oss;
+    oss << "tree info address: " << (void *)& tree_info[0];
+    addresses.push_back(oss.str());
+
+    for (const auto & tree : trees) {
+      addresses.push_back(tree->GetAddressesInfo());
+    }
+    return addresses;
+  }
   void CommitModel(std::vector<std::unique_ptr<RegTree> >&& new_trees,
                    int bst_group) {
     for (auto & new_tree : new_trees) {

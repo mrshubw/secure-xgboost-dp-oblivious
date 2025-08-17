@@ -987,6 +987,25 @@ XGB_DLL int XGBoosterGetAttrNames(BoosterHandle handle,
                                   bst_ulong* out_len,
                                   const char*** out);
 
+
+/**
+ * @brief Get the addresses information of all nodes in the XGBoost model.
+ *
+ * This function retrieves the addresses of all nodes in the model's decision trees.
+ *
+ * @param handle The handle to the Booster (XGBoost model).
+ * @param out_len Pointer to store the number of addresses returned.
+ * @param out_addresses Pointer to store the array of node addresses as C-style strings.
+ *                      The memory for the strings is managed internally and should not
+ *                      be freed by the caller.
+ *
+ * @return 0 when success, -1 when failure happens.
+ */
+XGB_DLL int XGBoosterGetAddressesInfo(BoosterHandle handle,
+    bst_ulong* out_len,
+    const char*** out_addresses);
+
+
 // --- Distributed training API----
 // NOTE: functions in rabit/c_api.h will be also available in libxgboost.so
 /*!

@@ -493,6 +493,12 @@ XGB_DLL int XGBoosterGetAttrNames(BoosterHandle handle,
   safe_ecall(enclave_XGBoosterGetAttrNames(Enclave::getInstance().getEnclave(), &Enclave::getInstance().enclave_ret, handle, out_len, (char***)out));
 }
 
+XGB_DLL int XGBoosterGetAddressesInfo(BoosterHandle handle,
+                                bst_ulong* out_len,
+                                const char*** out_addresses){
+  safe_ecall(enclave_XGBoosterGetAddressesInfo(Enclave::getInstance().getEnclave(), &Enclave::getInstance().enclave_ret, handle, out_len, (char***)out_addresses));
+}
+
 /* TODO(rishabhp): Enable this
  *
  * XGB_DLL int XGBoosterLoadRabitCheckpoint(BoosterHandle handle,

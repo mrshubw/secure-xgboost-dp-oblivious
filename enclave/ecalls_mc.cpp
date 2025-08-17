@@ -437,6 +437,11 @@ int enclave_XGBoosterGetAttrNames(BoosterHandle handle, bst_ulong* out_len, char
   return XGBoosterGetAttrNames(handle, out_len, (const char***) out);
 }
 
+int enclave_XGBoosterGetAddressesInfo(BoosterHandle handle, bst_ulong* out_len, char*** out_addresses) {
+  LOG(DEBUG) << "Ecall: XGBoosterGetAddressesInfo";
+  return XGBoosterGetAddressesInfo(handle, out_len, (const char***) out_addresses);
+}
+
 int enclave_XGDMatrixFree(DMatrixHandle handle) {
   LOG(DEBUG) << "Ecall: XGDMatrixFree";
   return XGDMatrixFree(handle);

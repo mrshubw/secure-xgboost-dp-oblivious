@@ -113,7 +113,9 @@ demo/enclave/distributed/hosts.config
 # gRPC build
 python-package/securexgboost/rpc/*pb2*
 
+do-enhanced/data
 # pte attack
 # SGX_PTE-Attack
 SGX_PTE-Attack/*/linux*
-SGX_PTE-Attack/simple_test/log*.txt
+SGX_PTE-Attack/simple_test/*.txt
+SGX_PTE-Attack/simple_test/data

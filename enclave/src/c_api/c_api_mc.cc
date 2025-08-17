@@ -1180,6 +1180,33 @@ XGB_DLL int XGBoosterGetAttrNames(BoosterHandle handle,
   API_END();
 }
 
+XGB_DLL int XGBoosterGetAddressesInfo(BoosterHandle handle,
+                                      xgboost::bst_ulong* out_len,
+                                      const char*** out_addresses) {
+  API_BEGIN();
+  CHECK_HANDLE();
+  // 获取 Booster 实例
+  auto* bst = static_cast<Booster*>(EnclaveContext::getInstance().get_booster(handle));
+
+  // 获取模型的地址信息
+  std::vector<std::string>& addresses_info = bst->GetThreadLocal().ret_vec_str;
+  addresses_info = bst->GetAddressesInfo();
+  // std::vector<std::string> source = {"apple", "banana", "cherry"};
+
+  // 动态分配内存存储 C 风格字符串
+  char** result = static_cast<char**>(oe_host_malloc(addresses_info.size() * sizeof(char*)));
+  for (size_t i = 0; i < addresses_info.size(); ++i) {
+    result[i] = static_cast<char*>(oe_host_malloc(addresses_info[i].size() + 1));
+    memcpy(result[i], addresses_info[i].c_str(), addresses_info[i].size() + 1);
+  }
+
+  *out_addresses = const_cast<const char**>(result);
+  *out_len = static_cast<xgboost::bst_ulong>(addresses_info.size());
+
+  API_END();
+}
+
+
 /* TODO(rishabhp): Enable this
  *
  * XGB_DLL int XGBoosterLoadRabitCheckpoint(BoosterHandle handle,
