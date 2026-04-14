@@ -19,6 +19,8 @@
 #include "param.h"
 #include "../common/common.h"
 
+#include "psrr/doxie_memory.h"
+
 namespace xgboost {
 // register tree parameter
 DMLC_REGISTER_PARAMETER(TreeParam);
@@ -1041,5 +1043,21 @@ void RegTree::CalculateContributions(const RegTree::FVec &feat,
 
   TreeShap(feat, out_contribs, 0, 0, unique_path_data.data(),
            1, 1, -1, condition, condition_feature, 1);
+}
+
+// ==== DOXIE PATCH: 实现生命周期控制 ====
+void RegTree::EnableDoxieMemory() const {
+  if (doxie_aligned_nodes_ == nullptr) {
+      uint32_t depth = 32 - __builtin_clz(param.num_nodes);
+      // 调用你写的转换库，接管原始数组
+      doxie_aligned_nodes_ = xgboost::doxie::ConvertToAlignedLayout(nodes_, depth);
+  }
+}
+
+void RegTree::DisableDoxieMemory() const {
+  if (doxie_aligned_nodes_ != nullptr) {
+      free(doxie_aligned_nodes_);
+      doxie_aligned_nodes_ = nullptr;
+  }
 }
 }  // namespace xgboost

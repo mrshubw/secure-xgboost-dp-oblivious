@@ -287,10 +287,32 @@ class RegTree : public Model {
     stash_.SetTree(this);
 #endif
   }
+  // ==== DOXIE PATCH: 声明生命周期控制函数 ====
+  void EnableDoxieMemory() const;
+  void DisableDoxieMemory() const;
+  // ===========================================
+
   /*! \brief get node given nid */
-  Node& operator[](int nid) { return nodes_[nid]; }
+  Node& operator[](int nid) { 
+    // ==== DOXIE PATCH: 重载非 const 访问 ====
+    if (doxie_aligned_nodes_ != nullptr) {
+        return *const_cast<Node*>(GetDoxieNode(nid));
+    }
+    return nodes_[nid]; 
+  }
+  
   /*! \brief get node given nid */
-  const Node& operator[](int nid) const { return nodes_[nid]; }
+  const Node& operator[](int nid) const { 
+    // ==== DOXIE PATCH: 重载 const 访问 ====
+    if (doxie_aligned_nodes_ != nullptr) {
+        return *GetDoxieNode(nid);
+    }
+    return nodes_[nid]; 
+  }
+  // /*! \brief get node given nid */
+  // Node& operator[](int nid) { return nodes_[nid]; }
+  // /*! \brief get node given nid */
+  // const Node& operator[](int nid) const { return nodes_[nid]; }
 
   /*! \brief get const reference to nodes */
   const std::vector<Node>& GetNodes() const { return nodes_; }
@@ -848,6 +870,46 @@ class RegTree : public Model {
 #ifdef __ENCLAVE_DPOBLIVIOUS__
   NodeStash stash_;
 #endif
+
+  // ==== DOXIE PATCH: 内部寻址支持 ====
+  // mutable 允许我们在 const 树对象上分配临时内存
+  mutable uint8_t* doxie_aligned_nodes_{nullptr};
+
+  // 内联的 O(1) 物理地址解算函数
+  inline const Node* GetDoxieNode(int nid) const {
+    uint32_t d = 31 - __builtin_clz(nid + 1);
+    if (d < 7) {
+        return reinterpret_cast<const Node*>(doxie_aligned_nodes_ + nid * 20);
+    }
+    
+    // ==== 极致优化：使用静态查表法替代 for 循环 ====
+    // 预先计算好的 d层 (d=0~16) 对应的 page_idx 起始偏移
+    // d=7: 1, d=8: 1+ceil(128/204)=2, d=9: 2+ceil(256/204)=4 ...
+    static const uint32_t PAGE_START[] = {
+        0, 0, 0, 0, 0, 0, 0,    // d = 0 到 6
+        1,                      // d = 7
+        2,                      // d = 8
+        4,                      // d = 9
+        7,                      // d = 10
+        12,                     // d = 11
+        23,                     // d = 12
+        44,                     // d = 13
+        85,                     // d = 14
+        166,                    // d = 15
+        327                     // d = 16
+    };
+    
+    uint32_t page_idx = PAGE_START[d];
+    uint32_t idx_in_level = nid - ((1 << d) - 1);
+    
+    // 编译器会对常数 204 的除法进行乘法逆元优化，速度极快
+    uint32_t p_offset = idx_in_level / 204;
+    uint32_t n_offset = idx_in_level % 204;
+    
+    return reinterpret_cast<const Node*>(doxie_aligned_nodes_ + (page_idx + p_offset) * 4096 + n_offset * 20);
+    // return &nodes_[nid];
+}
+
   // allocate a new node,
   // !!!!!! NOTE: may cause BUG here, nodes.resize
   int AllocNode() {

@@ -304,6 +304,12 @@ class CPUPredictor : public Predictor {
   void PredictDMatrixDO(DMatrix* p_fmat, std::vector<bst_float>* out_preds,
                             gbm::GBTreeModel const& model, int32_t tree_begin,
                             int32_t tree_end){
+    // ==== DOXIE PATCH START: 开启物理对齐内存 ====
+    for (size_t i = tree_begin; i < tree_end; ++i) {
+      model.trees[i]->EnableDoxieMemory();
+    }
+    // =============================================
+    
     common::Monitor monitor1;
     monitor1.Init("DO");
     monitor1.StartForce(__func__);
