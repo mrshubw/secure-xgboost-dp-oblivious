@@ -79,6 +79,7 @@ target
 # vscode
 .vscode
 .venv
+.codex
 
 # cpp tests and gcov generated files
 *.gcov

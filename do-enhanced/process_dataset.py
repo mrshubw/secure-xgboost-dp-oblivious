@@ -6,6 +6,9 @@ from sklearn.preprocessing import LabelEncoder, MinMaxScaler, StandardScaler
 import securexgboost as xgb
 from utils import *
 
+random_state = 42
+CURRENT_DIR = os.path.dirname(__file__)
+
 # Define column names for Higgs dataset
 higgs_column_names = ["label", "lepton_pT", "lepton_eta", "lepton_phi", "missing_energy_magnitude", "missing_energy_phi",
                       "jet1_pt", "jet1_eta", "jet1_phi", "jet1_b-tag",
@@ -58,10 +61,9 @@ def preprocess_covtype(data, size):
 def preprocess_higgs(data, size, filename=None, encrypt=True, scaler_type='minmax'):
     dataset = "higgs"
     # Sample the data
-    if filename is None:
-        data_sampled = data.sample(n=size, random_state=42)
-    else:
-        data_sampled = data.sample(n=size, random_state=int(time.time()))
+    global random_state
+    data_sampled = data.sample(n=size, random_state=random_state)
+    random_state += 1  # Increment random state for reproducibility in subsequent calls
     
     # Split data into features and labels
     X = data_sampled.drop("label", axis=1)
@@ -82,13 +84,14 @@ def preprocess_higgs(data, size, filename=None, encrypt=True, scaler_type='minma
     
     if filename is None:
         filename = f"data{size}"
-    data_path = os.path.join('data/higgs', filename + ".txt")
+    data_dir = os.path.join(CURRENT_DIR, 'data/higgs')
+    data_path = os.path.join(data_dir, filename + ".txt")
     with open(data_path, "w") as train_file:
         train_file.write("\n".join(sparse_data))
 
     if encrypt:
         # Encrypt the file
-        xgb.encrypt_file(data_path, os.path.join('data/' + dataset, filename + ".enc"), KEY_FILE)
+        xgb.encrypt_file(data_path, os.path.join(data_dir, filename + ".enc"), KEY_FILE)
 
 # Function to convert data to LibSVM format
 def convert_to_libsvm(X, y=None):
@@ -106,11 +109,13 @@ def convert_to_libsvm(X, y=None):
 def process_dataset(dataset, size, iterations=None):
     if dataset == 'allstate':
         data = pd.read_csv('data/allstate/train_set.csv', dtype={19: str}, low_memory=False)
+        preprocess_allstate(data, size)
     elif dataset == 'covtype':
         data = pd.read_csv('data/covtype/covtype.data', header=None)
         preprocess_covtype(data, size)
     elif dataset == 'higgs':
-        data = pd.read_csv('data/higgs/HIGGS.csv', header=None, names=higgs_column_names)
+        data_path = os.path.join(CURRENT_DIR, 'data/higgs/HIGGS.csv')
+        data = pd.read_csv(data_path, header=None, names=higgs_column_names)
         # preprocess_higgs(data, size)
         if iterations is not None:
             for i in range(iterations):

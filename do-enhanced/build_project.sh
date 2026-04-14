@@ -4,9 +4,9 @@
 set -e
 
 # Define variables
-VENV_DIR="$HOME/secure-xgboost-dp-oblivious/.venv"
+VENV_DIR="$HOME/secure-xgboost/.venv"
 REPO_URL="https://github.com/mc2-project/secure-xgboost.git"
-BUILD_DIR="$HOME/secure-xgboost-dp-oblivious/build"
+BUILD_DIR="$HOME/secure-xgboost/build"
 PYTHON_VERSION="python3"
 
 # Function to create virtual environment
@@ -55,7 +55,7 @@ build_project() {
 
 # Function to install the Python package
 install_python_package() {
-  cd $HOME/secure-xgboost-dp-oblivious/python-package
+  cd $HOME/secure-xgboost/python-package
   python3 setup.py install
   cd ../do-enhanced
 }
@@ -78,13 +78,13 @@ activate_venv
 # Determine the cmake parameters based on the build type
 case $BUILD_TYPE in
     obli)
-        build_project -DOE_DEBUG=1 -DSIMULATE=OFF -DUSE_AVX2=OFF -DOBLIVIOUS=ON -DDPOBLIVIOUS=OFF -DLOGGING=ON
+        build_project -DOE_DEBUG=1 -DSIMULATE=ON -DUSE_AVX2=OFF -DOBLIVIOUS=ON -DDPOBLIVIOUS=OFF -DLOGGING=ON
         ;;
     DPObli)
-        build_project -DOE_DEBUG=1 -DSIMULATE=OFF -DUSE_AVX2=OFF -DOBLIVIOUS=ON -DDPOBLIVIOUS=ON -DLOGGING=ON
+        build_project -DOE_DEBUG=1 -DSIMULATE=ON -DUSE_AVX2=OFF -DOBLIVIOUS=ON -DDPOBLIVIOUS=ON -DLOGGING=ON
         ;;
     default)
-        build_project -DOE_DEBUG=1 -DSIMULATE=OFF -DUSE_AVX2=OFF -DOBLIVIOUS=OFF -DDPOBLIVIOUS=OFF -DLOGGING=ON
+        build_project -DOE_DEBUG=1 -DSIMULATE=ON -DUSE_AVX2=OFF -DOBLIVIOUS=OFF -DDPOBLIVIOUS=OFF -DLOGGING=ON
         ;;
     *)
         echo "Unknown build type: $BUILD_TYPE"

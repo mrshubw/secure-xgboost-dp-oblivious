@@ -101,7 +101,7 @@ namespace obl
     // }
 
     void OShufflerWithIndex::shuffle(uint8_t *buf, size_t N, size_t block_size){
-        std::cout<<"OShufflerWithIndex::shuffle" << std::endl;
+        // std::cout<<"OShufflerWithIndex::shuffle" << std::endl;
         uint8_t *buffer = buf;
         // 当shuffle方法为bitonic shuffle或recursive shuffle时，需要添加索引idx表示每个block的原始位置
         // 初始化添加了idx的buf

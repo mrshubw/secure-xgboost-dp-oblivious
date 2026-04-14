@@ -26,6 +26,7 @@
 #include "enclave/dpobl_operator.h"
 #include "../common/quantile.h"
 #include "psrr/psrr.h"
+#include "psrr/doxie_memory.h"
 #endif
 
 namespace xgboost {
@@ -179,7 +180,7 @@ void PredictBatchKernel(DataView batch, std::vector<bst_float>* out_preds,
 
   // // used for sgx pte attack
   // std::cout << "tree_info address " << (void *)&model.tree_info[0] << std::endl;
-  std::cout << "PredValue address " << (void *)PredValue << std::endl;
+  // std::cout << "PredValue address " << (void *)PredValue << std::endl;
 
   std::vector<bst_float>& preds = *out_preds;
   CHECK_EQ(model.param.size_leaf_vector, 0)
@@ -306,7 +307,7 @@ class CPUPredictor : public Predictor {
     common::Monitor monitor1;
     monitor1.Init("DO");
     monitor1.StartForce(__func__);
-    std::cout << "/* message */" << std::endl;
+    // std::cout << "/* message */" << std::endl;
 
     std::lock_guard<std::mutex> guard(lock_);
     const int threads = omp_get_max_threads();
@@ -318,10 +319,10 @@ class CPUPredictor : public Predictor {
                    model.learner_model_param->num_output_group);
       size_t constexpr kUnroll = 8;
 
-      double epsilon = ReadParameterFromConfig("/home/hgtc/secure-xgboost-dp-oblivious/do-enhanced/data/config.txt", "epsilon", 1.0); // 从文件读取 epsilon
+      double epsilon = ReadParameterFromConfig("/root/secure-xgboost/do-enhanced/data/config.txt", "epsilon", 1.0); // 从文件读取 epsilon
       // double epsilon = 1.0;
       double delta = 0.00001;
-      logStr("/home/hgtc/secure-xgboost-dp-oblivious/do-enhanced/data/time.log", "epsilon: ", epsilon);
+      logStr("/root/secure-xgboost/do-enhanced/data/time.log", "epsilon: ", epsilon);
       int32_t const num_group = model.learner_model_param->num_output_group;
 
       #if 1
@@ -355,7 +356,7 @@ class CPUPredictor : public Predictor {
     }
 
     monitor1.StopForce(__func__);
-    monitor1.PrintForce("/home/hgtc/secure-xgboost-dp-oblivious/do-enhanced/data/time.log");
+    monitor1.PrintForce("/root/secure-xgboost/do-enhanced/data/time.log");
   }
 #endif
 
@@ -477,7 +478,7 @@ class CPUPredictor : public Predictor {
     monitor_.Print();
     // std::cout<<"PredictBatch cost: "<<monitor_.GetCost(__func__).second<<std::endl;
     timer.Stop();
-    timer.PrintElapsed("PredictBatch: ", "/home/hgtc/secure-xgboost-dp-oblivious/do-enhanced/data/time.log");
+    timer.PrintElapsed("PredictBatch: ", "/root/secure-xgboost/do-enhanced/data/time.log");
   }
 
   template <typename Adapter>

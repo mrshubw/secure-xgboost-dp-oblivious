@@ -147,7 +147,7 @@ void BitonicSort(unsigned char *buffer, size_t N, size_t block_size, bool ascend
 
 template<typename KeyType>
 void BitonicSort(unsigned char *buffer, size_t N, size_t block_size, bool ascend){
-  std::cout << "BitonicSort: block_size=" << block_size << std::endl;
+  // std::cout << "BitonicSort: block_size=" << block_size << std::endl;
   if (block_size==1){
     BitonicSort<OSWAP_1, KeyType>(buffer, N, block_size, ascend);
   } else if(block_size==2){

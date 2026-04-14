@@ -983,6 +983,13 @@ public:
   void AddDummy(xgboost::SparsePage& out_page, xgboost::SparsePage& dummySamples){
     std::vector<int> noise_vec = generate_normal_distribution_array(dummySamples.Size());
 
+    // std::cout<<"noise_vec: ";
+    // for (size_t i = 0; i < noise_vec.size(); i++)
+    // {
+    //   std::cout<<noise_vec[i]<<" ";
+    // }
+    // std::cout<<std::endl;
+
     // for (size_t i = 0; i < dummySamples.Size(); i++)
     // {
     //   for (size_t j = 0; j < noise_vec[i]; j++)
@@ -1022,6 +1029,9 @@ public:
       AddDummy(noise_page, dummySamples);
       if (monitor_ != nullptr) monitor_->StopForce("AddDummy");
     }
+
+    // std::cout<<"the number of dummies: "<<noise_page.Size()-in_page.Size()<<std::endl;
+    
     // for (size_t  i = 0; i < noise_page.Size(); i++)
     // {
     //   std::cout << " "<<i<<": " << noise_page[i].size() << std::endl;
@@ -1033,8 +1043,8 @@ public:
     shuffle_preds.resize(noise_page.Size() * num_groups);
     // std::cout<<"noise_page.Size(): "<<noise_page.Size()<<std::endl;
     #ifdef PSRR_OSHUFFLE
-    std::string shuffler_type = ReadParameterFromConfig<std::string>("/home/hgtc/secure-xgboost-dp-oblivious/do-enhanced/data/config.txt", "shuffleMethod", "BitonicShuffler");
-    logStr("/home/hgtc/secure-xgboost-dp-oblivious/do-enhanced/data/time.log", "shuffleMethod: ", shuffler_type);
+    std::string shuffler_type = ReadParameterFromConfig<std::string>("/root/secure-xgboost/do-enhanced/data/config.txt", "shuffleMethod", "BitonicShuffler");
+    logStr("/root/secure-xgboost/do-enhanced/data/time.log", "shuffleMethod: ", shuffler_type);
     oshuffler = obl::getShuffler(shuffler_type);
     // std::cout<<"noise_page.Size(): "<<noise_page.Size()<<" noise_page.fixed_row_size: "<<noise_page.fixed_row_size<<std::endl;
     // oshuffler = obl::create("BitonicShuffler");

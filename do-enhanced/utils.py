@@ -30,7 +30,7 @@ def initialize_xgboost(username=username, key_file=KEY_FILE, pub_key=PUB_KEY, ce
     xgb.init_client(user_name=username, sym_key_file=key_file, priv_key_file=pub_key, cert_file=cert_file)
     xgb.init_server(enclave_image=enclave_image, client_list=[username])
     # Pass in `verify=False` if running in simulation mode.
-    xgb.attest(verify=True)
+    xgb.attest(verify=False)
 
 # Convert DataFrame to sparse format
 def convert_to_sparse_format(df, labels):

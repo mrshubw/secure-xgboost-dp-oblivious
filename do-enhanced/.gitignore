@@ -1,7 +1,6 @@
 data/demo
 data/allstate
 data/covtype
-data/higgs/*.csv
-data/higgs/*.txt
-data/higgs/*.enc
+data/higgs
+data/config.txt
 result
