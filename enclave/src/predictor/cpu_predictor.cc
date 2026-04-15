@@ -6,9 +6,14 @@
 #include <dmlc/omp.h>
 
 #include <cstddef>
+#include <algorithm>
 #include <limits>
+#include <cmath>
 #include <mutex>
+#include <random>
 #include <thread>
+#include <utility>
+#include <vector>
 
 #include "../common/math.h"
 #include "../common/timer.h"
@@ -263,6 +268,340 @@ class CPUPredictor : public Predictor {
   }
 
 #ifdef __ENCLAVE_DPOBLIVIOUS__
+  struct DoxieFeatureDomain {
+    unsigned feature{0};
+    bst_float lower{std::numeric_limits<bst_float>::lowest()};
+    bst_float upper{std::numeric_limits<bst_float>::max()};
+  };
+
+  using DoxieNodeDomain = std::vector<DoxieFeatureDomain>;
+
+  struct DoxieNoisePosition {
+    size_t tree_pos;
+    size_t representative_pos;
+
+    DoxieNoisePosition() : tree_pos(0), representative_pos(0) {}
+    DoxieNoisePosition(size_t tree, size_t representative)
+        : tree_pos(tree), representative_pos(representative) {}
+  };
+
+  struct DoxieDummySamples {
+    xgboost::SparsePage page;
+    size_t max_entries{0};
+  };
+
+  static std::vector<int> CollectDoxieLeafPageRepresentatives(
+      gbm::GBTreeModel const& model, int32_t tree_begin, int32_t tree_end) {
+    CHECK_GE(tree_begin, 0);
+    CHECK_GE(tree_end, tree_begin);
+    CHECK_LE(static_cast<size_t>(tree_end), model.trees.size());
+
+    std::vector<int> representatives;
+    if (tree_begin == tree_end) {
+      return representatives;
+    }
+
+    const auto& nodes = model.trees[tree_begin]->GetNodes();
+    const size_t leaf_begin = nodes.size() / 2;
+    const size_t leaf_count = nodes.size() - leaf_begin;
+    const size_t leaves_per_page = xgboost::doxie::DOXIE_NODES_PER_PAGE;
+    const size_t page_count =
+        (leaf_count + leaves_per_page - 1) / leaves_per_page;
+
+    representatives.reserve(page_count);
+    for (size_t page = 0; page < page_count; ++page) {
+      const size_t page_leaf_begin = page * leaves_per_page;
+      const size_t page_leaf_end =
+          std::min(leaf_count, page_leaf_begin + leaves_per_page);
+
+      size_t subtree_leaf_begin = page_leaf_begin;
+      size_t subtree_leaf_count = 1;
+      for (size_t count = 2; count <= page_leaf_end - page_leaf_begin;
+           count <<= 1) {
+        const size_t aligned_begin =
+            ((page_leaf_begin + count - 1) / count) * count;
+        if (aligned_begin + count <= page_leaf_end) {
+          subtree_leaf_begin = aligned_begin;
+          subtree_leaf_count = count;
+        }
+      }
+
+      size_t nid = leaf_begin + subtree_leaf_begin;
+      for (size_t count = subtree_leaf_count; count > 1; count >>= 1) {
+        nid = (nid - 1) / 2;
+      }
+      representatives.push_back(static_cast<int>(nid));
+    }
+    return representatives;
+  }
+
+  static void AddDoxieDomainConstraint(DoxieNodeDomain* domain,
+                                       unsigned feature,
+                                       bst_float split_value,
+                                       bool go_left) {
+    for (auto& item : *domain) {
+      if (item.feature == feature) {
+        if (go_left) {
+          item.upper = std::min(item.upper, split_value);
+        } else {
+          item.lower = std::max(item.lower, split_value);
+        }
+        return;
+      }
+    }
+
+    DoxieFeatureDomain item;
+    item.feature = feature;
+    if (go_left) {
+      item.upper = split_value;
+    } else {
+      item.lower = split_value;
+    }
+    domain->push_back(item);
+  }
+
+  static DoxieNodeDomain BuildDoxieNodeDomain(RegTree const& tree,
+                                              int representative_nid) {
+    DoxieNodeDomain domain;
+    domain.reserve(16);
+    bst_node_t nid = representative_nid;
+    while (nid != 0) {
+      const auto& node = tree[nid];
+      const bst_node_t parent_nid = node.Parent();
+      const auto& parent = tree[parent_nid];
+      const bool go_left = nid == parent.LeftChild();
+      AddDoxieDomainConstraint(&domain, parent.SplitIndex(),
+                               parent.SplitCond(), go_left);
+      nid = parent_nid;
+    }
+    return domain;
+  }
+
+  static std::vector<std::vector<DoxieNodeDomain>>
+  CollectDoxieRepresentativeDomains(gbm::GBTreeModel const& model,
+                                    int32_t tree_begin, int32_t tree_end,
+                                    const std::vector<int>& representatives) {
+    CHECK_GE(tree_begin, 0);
+    CHECK_GE(tree_end, tree_begin);
+    CHECK_LE(static_cast<size_t>(tree_end), model.trees.size());
+
+    std::vector<std::vector<DoxieNodeDomain>> domains(tree_end - tree_begin);
+    for (int32_t tree_id = tree_begin; tree_id < tree_end; ++tree_id) {
+      auto& tree_domains = domains[tree_id - tree_begin];
+      tree_domains.reserve(representatives.size());
+      for (int nid : representatives) {
+        tree_domains.push_back(
+            BuildDoxieNodeDomain(*model.trees[tree_id], nid));
+      }
+    }
+    return domains;
+  }
+
+  static std::vector<std::vector<size_t>> SampleDoxieRepresentativeNoise(
+      int32_t tree_begin, int32_t tree_end,
+      const std::vector<int>& representatives, double epsilon, double delta,
+      double sensitivity) {
+    CHECK_GE(tree_begin, 0);
+    CHECK_GE(tree_end, tree_begin);
+    CHECK_GT(epsilon, 0.0);
+    CHECK_GT(delta, 0.0);
+
+    const size_t num_trees = static_cast<size_t>(tree_end - tree_begin);
+    std::vector<std::vector<size_t>> noise(num_trees);
+    if (num_trees == 0 || representatives.empty()) {
+      return noise;
+    }
+
+    const PrivacyBudget per_tree_budget =
+        SplitPrivacyBudgetByAdvancedComposition(epsilon, delta, num_trees);
+    const double sigma =
+        calculateSigma(per_tree_budget.epsilon, per_tree_budget.delta,
+                       sensitivity);
+    const double mean = calculateMean(sigma, per_tree_budget.delta);
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::normal_distribution<double> gaussian(mean, sigma);
+
+    for (auto& tree_noise : noise) {
+      tree_noise.reserve(representatives.size());
+      for (size_t i = 0; i < representatives.size(); ++i) {
+        tree_noise.push_back(
+            static_cast<size_t>(std::round(std::max(gaussian(gen), 0.0))));
+      }
+    }
+    return noise;
+  }
+
+  static size_t CountDoxieRemainingNoise(
+      const std::vector<std::vector<size_t>>& noise) {
+    size_t remaining_noise = 0;
+    for (const auto& tree_noise : noise) {
+      for (size_t value : tree_noise) {
+        remaining_noise += value;
+      }
+    }
+    return remaining_noise;
+  }
+
+  static DoxieNoisePosition FindDoxieSeed(
+      const std::vector<std::vector<size_t>>& noise,
+      DoxieNoisePosition* cursor) {
+    CHECK(cursor != nullptr);
+    for (size_t tree_pos = cursor->tree_pos; tree_pos < noise.size(); ++tree_pos) {
+      const size_t representative_begin =
+          tree_pos == cursor->tree_pos ? cursor->representative_pos : 0;
+      for (size_t representative_pos = representative_begin;
+           representative_pos < noise[tree_pos].size(); ++representative_pos) {
+        if (noise[tree_pos][representative_pos] > 0) {
+          *cursor = DoxieNoisePosition(tree_pos, representative_pos);
+          return DoxieNoisePosition(tree_pos, representative_pos);
+        }
+      }
+    }
+    LOG(FATAL) << "FindDoxieSeed requires at least one positive noise value.";
+    return DoxieNoisePosition();
+  }
+
+  static bool CanIntersectDoxieDomain(const DoxieNodeDomain& current,
+                                      const DoxieNodeDomain& candidate) {
+    for (const auto& candidate_item : candidate) {
+      bool found = false;
+      for (const auto& current_item : current) {
+        if (current_item.feature == candidate_item.feature) {
+          const bst_float lower = std::max(current_item.lower,
+                                           candidate_item.lower);
+          const bst_float upper = std::min(current_item.upper,
+                                           candidate_item.upper);
+          if (!(lower < upper)) {
+            return false;
+          }
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        if (!(candidate_item.lower < candidate_item.upper)) {
+          return false;
+        }
+      }
+    }
+
+    return true;
+  }
+
+  static void ApplyIntersectDoxieDomain(DoxieNodeDomain* current,
+                                        const DoxieNodeDomain& candidate) {
+    for (const auto& candidate_item : candidate) {
+      bool found = false;
+      for (auto& current_item : *current) {
+        if (current_item.feature == candidate_item.feature) {
+          current_item.lower = std::max(current_item.lower,
+                                        candidate_item.lower);
+          current_item.upper = std::min(current_item.upper,
+                                        candidate_item.upper);
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        current->push_back(candidate_item);
+      }
+    }
+  }
+
+  static bool IsDoxieDefaultLower(bst_float value) {
+    return value == std::numeric_limits<bst_float>::lowest();
+  }
+
+  static bool IsDoxieDefaultUpper(bst_float value) {
+    return value == std::numeric_limits<bst_float>::max();
+  }
+
+  static void BuildDoxieDummyEntries(const DoxieNodeDomain& domain,
+                                     std::vector<xgboost::Entry>* entries) {
+    entries->clear();
+    entries->reserve(domain.size());
+    for (const auto& item : domain) {
+      const bool has_lower = !IsDoxieDefaultLower(item.lower);
+      const bool has_upper = !IsDoxieDefaultUpper(item.upper);
+      if (!has_lower && !has_upper) {
+        continue;
+      }
+
+      bst_float value;
+      if (has_lower && has_upper) {
+        value = item.lower + (item.upper - item.lower) / 2;
+      } else if (has_lower) {
+        value = std::nextafter(item.lower,
+                               std::numeric_limits<bst_float>::max());
+      } else {
+        value = std::nextafter(item.upper,
+                               std::numeric_limits<bst_float>::lowest());
+      }
+      entries->push_back(xgboost::Entry{item.feature, value});
+    }
+
+  }
+
+  static DoxieDummySamples BuildDoxieDummySamplesFromNoiseAndDomains(
+      std::vector<std::vector<size_t>>* noise,
+      const std::vector<std::vector<DoxieNodeDomain>>& domains) {
+    CHECK(noise != nullptr);
+    CHECK_EQ(noise->size(), domains.size());
+    for (size_t tree_pos = 0; tree_pos < noise->size(); ++tree_pos) {
+      CHECK_EQ((*noise)[tree_pos].size(), domains[tree_pos].size());
+    }
+
+    DoxieDummySamples dummy_samples;
+    size_t remaining_noise = CountDoxieRemainingNoise(*noise);
+    std::vector<xgboost::Entry> entries;
+    DoxieNodeDomain dummy_domain;
+    dummy_domain.reserve(32);
+    DoxieNoisePosition seed_cursor;
+    std::vector<size_t> first_positive_rep(noise->size(), 0);
+    while (remaining_noise > 0) {
+      const DoxieNoisePosition seed = FindDoxieSeed(*noise, &seed_cursor);
+      dummy_domain = domains[seed.tree_pos][seed.representative_pos];
+      CHECK_GT((*noise)[seed.tree_pos][seed.representative_pos], 0U);
+      (*noise)[seed.tree_pos][seed.representative_pos]--;
+      remaining_noise--;
+
+      for (size_t tree_pos = 0; tree_pos < noise->size(); ++tree_pos) {
+        if (tree_pos == seed.tree_pos) {
+          continue;
+        }
+
+        while (first_positive_rep[tree_pos] < (*noise)[tree_pos].size() &&
+               (*noise)[tree_pos][first_positive_rep[tree_pos]] == 0) {
+          first_positive_rep[tree_pos]++;
+        }
+
+        for (size_t representative_pos = first_positive_rep[tree_pos];
+             representative_pos < (*noise)[tree_pos].size();
+             ++representative_pos) {
+          if ((*noise)[tree_pos][representative_pos] == 0) {
+            continue;
+          }
+          const auto& candidate_domain = domains[tree_pos][representative_pos];
+          if (CanIntersectDoxieDomain(dummy_domain, candidate_domain)) {
+            ApplyIntersectDoxieDomain(&dummy_domain, candidate_domain);
+            (*noise)[tree_pos][representative_pos]--;
+            remaining_noise--;
+            break;
+          }
+        }
+      }
+
+      BuildDoxieDummyEntries(dummy_domain, &entries);
+      xgboost::SparsePage::Inst inst{entries.data(), entries.size()};
+      dummy_samples.page.Push(inst);
+      dummy_samples.max_entries =
+          std::max(dummy_samples.max_entries, entries.size());
+    }
+    return dummy_samples;
+  }
+
   /**
    * 逐决策树地进行推断
   */
@@ -305,9 +644,9 @@ class CPUPredictor : public Predictor {
                             gbm::GBTreeModel const& model, int32_t tree_begin,
                             int32_t tree_end){
     // ==== DOXIE PATCH START: 开启物理对齐内存 ====
-    for (size_t i = tree_begin; i < tree_end; ++i) {
-      model.trees[i]->EnableDoxieMemory();
-    }
+    // for (size_t i = tree_begin; i < tree_end; ++i) {
+    //   model.trees[i]->EnableDoxieMemory();
+    // }
     // =============================================
     
     common::Monitor monitor1;
@@ -331,33 +670,23 @@ class CPUPredictor : public Predictor {
       logStr("/root/secure-xgboost/do-enhanced/data/time.log", "epsilon: ", epsilon);
       int32_t const num_group = model.learner_model_param->num_output_group;
 
-      #if 1
-      std::vector<xgboost::SparsePage> trees_dummy_samples;
-      for (size_t i = 0; i < model.trees.size(); i++) {
-        trees_dummy_samples.push_back(model.trees[i]->GenerateDummySamples());
-      }
-      
+      auto representatives =
+          CollectDoxieLeafPageRepresentatives(model, tree_begin, tree_end);
+      auto domains = CollectDoxieRepresentativeDomains(
+          model, tree_begin, tree_end, representatives);
+      auto noise = SampleDoxieRepresentativeNoise(
+          tree_begin, tree_end, representatives, epsilon, delta, 1);
+      DoxieDummySamples dummy_samples =
+          BuildDoxieDummySamplesFromNoiseAndDomains(&noise, domains);
       DOoperator do_operator(epsilon, delta, 1);
-      do_operator.Preprocess(batch, trees_dummy_samples, model.trees[0]->GetNodes().size(), &monitor1, (tree_end-tree_begin), num_group);
+      do_operator.Preprocess(batch, dummy_samples.page,
+                             dummy_samples.max_entries, &monitor1, num_group);
       
       monitor1.StartForce("PredictNO");
       PredictBatchKernel(SparsePageView<kUnroll>{&do_operator.shuffle_page}, &(do_operator.shuffle_preds), model,
                         tree_begin, tree_end, &thread_temp_, &monitor_);
       monitor1.StopForce("PredictNO");
       do_operator.PostProcess(out_preds, &monitor1);
-
-      #else
-      // PSRR psrr(epsilon, delta, 1);
-      // xgboost::SparsePagePadding in_page = xgboost::SparsePagePadding::FromSparsePage(batch);
-
-      // xgboost::SparsePage dummy_samples;
-      // for (size_t i = 0; i < model.trees.size(); i++) {
-      //   model.trees[i]->GenerateDummySamples(dummy_samples);
-      // }
-      // psrr.perturb(dummy_samples.data.HostVector().data(), dummy_samples.MaxNumberOfEntries()* sizeof(xgboost::Entry), dummy_samples.Size());
-
-
-      #endif
       
     }
 

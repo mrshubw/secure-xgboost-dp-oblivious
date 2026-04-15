@@ -1,8 +1,11 @@
 #pragma once
 
+#include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <type_traits>
 #include <iostream>
 #include <fstream>
@@ -917,6 +920,52 @@ inline double calculateMean(double sigma, double delta) {
   return -sigma * z;
 }
 
+struct PrivacyBudget {
+  double epsilon;
+  double delta;
+};
+
+inline double AdvancedCompositionEpsilon(double epsilon_per_tree,
+                                         size_t trees_num,
+                                         double delta_prime) {
+  const double trees = static_cast<double>(trees_num);
+  return std::sqrt(2.0 * trees * std::log(1.0 / delta_prime)) *
+             epsilon_per_tree +
+         trees * epsilon_per_tree * std::expm1(epsilon_per_tree);
+}
+
+inline PrivacyBudget SplitPrivacyBudgetByAdvancedComposition(
+    double epsilon, double delta, size_t trees_num) {
+  CHECK_GT(epsilon, 0.0);
+  CHECK_GT(delta, 0.0);
+  CHECK_LT(delta, 1.0);
+
+  if (trees_num <= 1) {
+    return PrivacyBudget{epsilon, delta};
+  }
+
+  const double delta_prime = delta / 2.0;
+  const double delta_per_tree = (delta - delta_prime) /
+                                static_cast<double>(trees_num);
+
+  double lower = 0.0;
+  double upper = epsilon;
+  while (AdvancedCompositionEpsilon(upper, trees_num, delta_prime) < epsilon) {
+    upper *= 2.0;
+  }
+
+  for (int i = 0; i < 80; ++i) {
+    const double mid = (lower + upper) / 2.0;
+    if (AdvancedCompositionEpsilon(mid, trees_num, delta_prime) <= epsilon) {
+      lower = mid;
+    } else {
+      upper = mid;
+    }
+  }
+
+  return PrivacyBudget{lower, delta_per_tree};
+}
+
 #define PSRR_OSHUFFLE
 
 class DOoperator
@@ -937,8 +986,8 @@ public:
 
   DOoperator(/* args */):DOoperator(1, 0.00001, 1){};
   DOoperator(double epsilon, double delta, double sensitivity):epsilon(epsilon),delta(delta),sensitivity(sensitivity){
-    sigma = calculateSigma(epsilon, delta, sensitivity);
-    mean = calculateMean(sigma, delta);
+    // sigma = calculateSigma(epsilon, delta, sensitivity);
+    // mean = calculateMean(sigma, delta);
     // std::cout<<"sigma: "<<sigma<<" mean: "<<mean<<std::endl;
   };
   ~DOoperator(){};
@@ -1014,6 +1063,13 @@ public:
 
   template <typename Monitor>
   void Preprocess(xgboost::SparsePage& in_page, std::vector<xgboost::SparsePage>& trees_dummy_samples, size_t tree_nodes_num, Monitor* monitor_ = nullptr, int trees_num=1, int num_groups=1){
+    CHECK_GT(trees_num, 0);
+    PrivacyBudget per_tree_budget =
+        SplitPrivacyBudgetByAdvancedComposition(
+            epsilon, delta, static_cast<size_t>(trees_num));
+    sigma = calculateSigma(epsilon, delta/trees_num,
+                           sensitivity);
+    mean = calculateMean(sigma, delta/trees_num);
     // size_t samples_num = (tree_nodes_num/2)/200;
     // std::cout<<"trees_num: "<<trees_num<<" samples_num: "<<samples_num<<std::endl;
     
@@ -1065,6 +1121,46 @@ public:
     shuffler.shuffleForwardRandom(noise_page, shuffle_page, shuffle_index);
     #endif
     if (monitor_ != nullptr) monitor_->StopForce("shuffle");
+  }
+
+  template <typename Monitor>
+  void Preprocess(xgboost::SparsePage& in_page,
+                  xgboost::SparsePage& dummy_samples,
+                  size_t dummy_max_entries,
+                  Monitor* monitor_ = nullptr, int num_groups=1) {
+    const size_t fixed_row_size =
+        std::max(in_page.MaxNumberOfEntries(), dummy_max_entries);
+    xgboost::SparsePagePadding noise_page(fixed_row_size);
+    noise_page.FrommSparsePage(in_page);
+
+    if (monitor_ != nullptr) monitor_->StartForce("AddDummy");
+    for (size_t i = 0; i < dummy_samples.Size(); ++i) {
+      noise_page.ExpandAndWrite(i, dummy_samples);
+    }
+    if (monitor_ != nullptr) monitor_->StopForce("AddDummy");
+
+    if (monitor_ != nullptr) monitor_->StartForce("shuffle");
+    shuffle_index.resize(noise_page.Size());
+    shuffle_preds.resize(noise_page.Size() * num_groups);
+    #ifdef PSRR_OSHUFFLE
+    std::string shuffler_type = ReadParameterFromConfig<std::string>("/root/secure-xgboost/do-enhanced/data/config.txt", "shuffleMethod", "BitonicShuffler");
+    logStr("/root/secure-xgboost/do-enhanced/data/time.log", "shuffleMethod: ", shuffler_type);
+    oshuffler = obl::getShuffler(shuffler_type);
+    oshuffler->shuffle((uint8_t*)noise_page.data.HostVector().data(), noise_page.Size(), noise_page.fixed_row_size*sizeof(xgboost::Entry));
+    shuffle_page.Push(noise_page);
+    #else
+    Shuffler& shuffler = Shuffler::getInstance();
+    shuffler.shuffleForwardRandom(noise_page, shuffle_page, shuffle_index);
+    #endif
+    if (monitor_ != nullptr) monitor_->StopForce("shuffle");
+  }
+
+  template <typename Monitor>
+  void Preprocess(xgboost::SparsePage& in_page,
+                  xgboost::SparsePage& dummy_samples,
+                  Monitor* monitor_ = nullptr, int num_groups=1) {
+    Preprocess(in_page, dummy_samples, dummy_samples.MaxNumberOfEntries(),
+               monitor_, num_groups);
   }
 
   // another method of post process, deprecated

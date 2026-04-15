@@ -78,13 +78,13 @@ activate_venv
 # Determine the cmake parameters based on the build type
 case $BUILD_TYPE in
     obli)
-        build_project -DOE_DEBUG=1 -DSIMULATE=ON -DUSE_AVX2=OFF -DOBLIVIOUS=ON -DDPOBLIVIOUS=OFF -DLOGGING=ON
+        build_project -DOE_DEBUG=1 -DSIMULATE=ON -DUSE_AVX2=OFF -DOBLIVIOUS=ON -DDPOBLIVIOUS=OFF -DLOGGING=ON -DCMAKE_BUILD_TYPE=Release
         ;;
     DPObli)
-        build_project -DOE_DEBUG=1 -DSIMULATE=ON -DUSE_AVX2=OFF -DOBLIVIOUS=ON -DDPOBLIVIOUS=ON -DLOGGING=ON
+        build_project -DOE_DEBUG=1 -DSIMULATE=ON -DUSE_AVX2=OFF -DOBLIVIOUS=ON -DDPOBLIVIOUS=ON -DLOGGING=ON -DCMAKE_BUILD_TYPE=Release
         ;;
     default)
-        build_project -DOE_DEBUG=1 -DSIMULATE=ON -DUSE_AVX2=OFF -DOBLIVIOUS=OFF -DDPOBLIVIOUS=OFF -DLOGGING=ON
+        build_project -DOE_DEBUG=1 -DSIMULATE=ON -DUSE_AVX2=OFF -DOBLIVIOUS=OFF -DDPOBLIVIOUS=OFF -DLOGGING=ON -DCMAKE_BUILD_TYPE=Release
         ;;
     *)
         echo "Unknown build type: $BUILD_TYPE"
