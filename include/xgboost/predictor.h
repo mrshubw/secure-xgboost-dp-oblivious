@@ -216,6 +216,10 @@ class Predictor {
                                                std::vector<bst_float>* tree_weights = nullptr,
                                                bool approximate = false) = 0;
 
+  virtual std::string GetLastPredictionMetrics() const {
+    return "{}";
+  }
+
 
   /**
    * \brief Creates a new Predictor*.

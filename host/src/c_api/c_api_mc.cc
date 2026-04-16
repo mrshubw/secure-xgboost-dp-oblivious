@@ -326,6 +326,11 @@ XGB_DLL int XGBoosterPredict(BoosterHandle handle,
     safe_ecall(enclave_XGBoosterPredict(Enclave::getInstance().getEnclave(), &Enclave::getInstance().enclave_ret, handle, dmat, option_mask, ntree_limit, training, nonce, nonce_size, nonce_ctr, len, out_result, out_sig, out_sig_length, signers, signer_lengths, signatures, sig_lengths, NUM_CLIENTS));
 }
 
+XGB_DLL int XGBoosterGetLastPredictionMetrics(BoosterHandle handle,
+                                              const char** out_metrics) {
+  safe_ecall(enclave_XGBoosterGetLastPredictionMetrics(Enclave::getInstance().getEnclave(), &Enclave::getInstance().enclave_ret, handle, (char**) out_metrics));
+}
+
 XGB_DLL int XGBoosterLoadModel(BoosterHandle handle, const char* fname, uint8_t* nonce, size_t nonce_size, uint32_t nonce_ctr, uint8_t** out_sig, size_t* out_sig_length, char** signers, uint8_t* signatures[], size_t* sig_lengths) {
   int NUM_CLIENTS = Enclave::getInstance().get_num_clients();
   size_t signer_lengths[NUM_CLIENTS];

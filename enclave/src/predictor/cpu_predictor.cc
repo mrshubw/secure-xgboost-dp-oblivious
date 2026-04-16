@@ -27,6 +27,7 @@
 #include "xgboost/predictor.h"
 #include "xgboost/tree_model.h"
 #include "xgboost/tree_updater.h"
+#include "enclave/prediction_metrics.h"
 
 #ifdef __ENCLAVE_OBLIVIOUS__
 #include "enclave/dpobl_operator.h"
@@ -665,10 +666,8 @@ class CPUPredictor : public Predictor {
                    model.learner_model_param->num_output_group);
       size_t constexpr kUnroll = 8;
 
-      double epsilon = doxie_epsilon_;
-      double delta = doxie_delta_;
-      logStr("/root/secure-xgboost/do-enhanced/data/time.log", "epsilon: ", epsilon);
-      logStr("/root/secure-xgboost/do-enhanced/data/time.log", "delta: ", delta);
+      double epsilon = prediction_metrics_.epsilon;
+      double delta = prediction_metrics_.delta;
       int32_t const num_group = model.learner_model_param->num_output_group;
 
       auto representatives =
@@ -679,7 +678,8 @@ class CPUPredictor : public Predictor {
           tree_begin, tree_end, representatives, epsilon, delta, 1);
       DoxieDummySamples dummy_samples =
           BuildDoxieDummySamplesFromNoiseAndDomains(&noise, domains);
-      DOoperator do_operator(epsilon, delta, 1, doxie_shuffle_method_);
+      DOoperator do_operator(epsilon, delta, 1,
+                             prediction_metrics_.shuffle_method);
       do_operator.Preprocess(batch, dummy_samples.page,
                              dummy_samples.max_entries, &monitor1, num_group);
       
@@ -692,7 +692,17 @@ class CPUPredictor : public Predictor {
     }
 
     monitor1.StopForce(__func__);
-    monitor1.PrintForce("/root/secure-xgboost/do-enhanced/data/time.log");
+    prediction_metrics_.has_do_metrics = true;
+    prediction_metrics_.add_dummy_seconds =
+        PredictionMetrics::Seconds(monitor1.GetCost("AddDummy"));
+    prediction_metrics_.post_process_seconds =
+        PredictionMetrics::Seconds(monitor1.GetCost("PostProcess"));
+    prediction_metrics_.predict_dmatrix_do_seconds =
+        PredictionMetrics::Seconds(monitor1.GetCost(__func__));
+    prediction_metrics_.predict_no_seconds =
+        PredictionMetrics::Seconds(monitor1.GetCost("PredictNO"));
+    prediction_metrics_.shuffle_seconds =
+        PredictionMetrics::Seconds(monitor1.GetCost("shuffle"));
   }
 #endif
 
@@ -748,11 +758,11 @@ class CPUPredictor : public Predictor {
     Predictor::Configure(cfg);
     for (auto const& kv : cfg) {
       if (kv.first == "doxie_epsilon") {
-        doxie_epsilon_ = std::stod(kv.second);
+        prediction_metrics_.epsilon = std::stod(kv.second);
       } else if (kv.first == "doxie_delta") {
-        doxie_delta_ = std::stod(kv.second);
+        prediction_metrics_.delta = std::stod(kv.second);
       } else if (kv.first == "doxie_shuffle_method") {
-        doxie_shuffle_method_ = kv.second;
+        prediction_metrics_.shuffle_method = kv.second;
       }
     }
   }
@@ -763,6 +773,7 @@ class CPUPredictor : public Predictor {
                     uint32_t const ntree_limit = 0) override {
     xgboost::common::Timer timer;
     timer.Start();
+    prediction_metrics_.ResetTimings();
     monitor_.Init("CPUPredictor");
     monitor_.Start(__func__);
     // tree_begin is not used, right now we just enforce it to be 0.
@@ -827,7 +838,11 @@ class CPUPredictor : public Predictor {
     monitor_.Print();
     // std::cout<<"PredictBatch cost: "<<monitor_.GetCost(__func__).second<<std::endl;
     timer.Stop();
-    timer.PrintElapsed("PredictBatch: ", "/root/secure-xgboost/do-enhanced/data/time.log");
+    prediction_metrics_.predict_batch_seconds = timer.ElapsedSeconds();
+  }
+
+  std::string GetLastPredictionMetrics() const override {
+    return prediction_metrics_.ToJson();
   }
 
   template <typename Adapter>
@@ -1062,9 +1077,7 @@ class CPUPredictor : public Predictor {
   std::mutex lock_;
   std::vector<RegTree::FVec> thread_temp_;
   common::Monitor monitor_;
-  double doxie_epsilon_{1.0};
-  double doxie_delta_{0.00001};
-  std::string doxie_shuffle_method_{"BitonicShuffler"};
+  PredictionMetrics prediction_metrics_;
 };
 
 XGBOOST_REGISTER_PREDICTOR(CPUPredictor, "cpu_predictor")

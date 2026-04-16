@@ -700,6 +700,9 @@ XGB_DLL int XGBoosterPredict(BoosterHandle handle,
                              bst_ulong *out_len,
                              uint8_t **out_result);
 
+XGB_DLL int XGBoosterGetLastPredictionMetrics(BoosterHandle handle,
+                                              const char** out_metrics);
+
 /*
  * ========================== Begin Serialization APIs =========================
  */

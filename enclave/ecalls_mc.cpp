@@ -375,6 +375,12 @@ int enclave_XGBoosterPredict(BoosterHandle handle, DMatrixHandle dmat, int optio
   return ret;
 }
 
+int enclave_XGBoosterGetLastPredictionMetrics(BoosterHandle handle, char** out_metrics) {
+  LOG(DEBUG) << "Ecall: XGBoosterGetLastPredictionMetrics";
+
+  return XGBoosterGetLastPredictionMetrics(handle, (const char**)out_metrics);
+}
+
 int enclave_XGDMatrixGetFloatInfo(const DMatrixHandle handle, const char* field, bst_ulong *out_len, bst_float **out_dptr) {
   LOG(DEBUG) << "Ecall: XGDMatrixGetFloatInfo";
   return XGDMatrixGetFloatInfo(handle, field, out_len, (const bst_float**) out_dptr);

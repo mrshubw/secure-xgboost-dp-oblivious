@@ -549,6 +549,18 @@ XGB_DLL int XGBoosterPredict(BoosterHandle handle,
   API_END();
 }
 
+XGB_DLL int XGBoosterGetLastPredictionMetrics(BoosterHandle handle,
+                                              const char** out_metrics) {
+  API_BEGIN();
+  CHECK_HANDLE();
+
+  auto* bst = static_cast<Booster*>(EnclaveContext::getInstance().get_booster(handle));
+  std::string metrics = bst->GetLastPredictionMetrics();
+  *out_metrics = oe_host_strndup(metrics.c_str(), metrics.length());
+
+  API_END();
+}
+
 // TODO(rishabh): Server can replace file contents
 XGB_DLL int XGBoosterLoadModel(BoosterHandle handle, const char* fname) {
     API_BEGIN();

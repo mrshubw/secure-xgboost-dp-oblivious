@@ -169,7 +169,10 @@ class GradientBooster : public Model, public Configurable {
   virtual std::vector<std::string> GetAddressesInfo() const{
     return {"GetAddressesInfo is not implemented for this booster."};
   };
-  /*!
+  virtual std::string GetLastPredictionMetrics() const {
+    return "{}";
+  }
+  /*! 
    * \brief Whether the current booster uses GPU.
    */
   virtual bool UseGPU() const = 0;

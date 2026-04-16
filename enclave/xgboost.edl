@@ -68,6 +68,10 @@ enclave {
                 int training,
                 [out] bst_ulong *out_len,
                 [out] uint8_t **out_result);
+
+        public int enclave_XGBoosterGetLastPredictionMetrics(
+                [in, string] char* handle,
+                [out] char** out_metrics);
         
         public int enclave_XGDMatrixGetFloatInfo(
                 [in, string] char* handle,

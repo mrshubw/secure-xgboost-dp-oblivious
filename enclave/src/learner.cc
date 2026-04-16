@@ -1107,6 +1107,13 @@ class LearnerImpl : public LearnerIO {
     return cfg_;
   }
 
+  std::string GetLastPredictionMetrics() const override {
+    if (!gbm_) {
+      return "{}";
+    }
+    return gbm_->GetLastPredictionMetrics();
+  }
+
  protected:
   /*!
    * \brief get un-transformed prediction

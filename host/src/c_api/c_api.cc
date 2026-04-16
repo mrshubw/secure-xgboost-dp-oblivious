@@ -523,6 +523,11 @@ XGB_DLL int XGBoosterPredict(BoosterHandle handle,
   safe_ecall(enclave_XGBoosterPredict(Enclave::getInstance().getEnclave(), &Enclave::getInstance().enclave_ret, handle, dmat, option_mask, ntree_limit, training, len, out_result));
 }
 
+XGB_DLL int XGBoosterGetLastPredictionMetrics(BoosterHandle handle,
+    const char** out_metrics) {
+  safe_ecall(enclave_XGBoosterGetLastPredictionMetrics(Enclave::getInstance().getEnclave(), &Enclave::getInstance().enclave_ret, handle, (char**) out_metrics));
+}
+
 // A hidden API as cache id is not being supported yet.
 /*
  *XGB_DLL int XGBoosterPredictFromDense(BoosterHandle handle, float *values,

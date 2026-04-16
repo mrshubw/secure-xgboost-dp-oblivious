@@ -195,8 +195,6 @@ std::pair<size_t, size_t> Monitor::GetCost(const std::string &name){
     stat_map[kv.first] = std::make_pair(
         kv.second.count, std::chrono::duration_cast<std::chrono::microseconds>(
             kv.second.timer.elapsed).count());
-            std::cout<<"kv.second.count"<<std::endl;
-            // std::cout<<kv.second.count<<std::endl;
   }
   return stat_map[name];
 }

@@ -117,6 +117,10 @@ enclave {
                 [in, count=num_sigs] uint8_t **signatures,
                 [in, count=num_sigs] size_t* sig_lengths,
                 size_t num_sigs);
+
+        public int enclave_XGBoosterGetLastPredictionMetrics(
+                [in, string] char* handle,
+                [out] char** out_metrics);
         
         public int enclave_XGDMatrixGetFloatInfo(
                 [in, string] char* handle,

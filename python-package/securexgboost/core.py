@@ -4,6 +4,7 @@
 """Core XGBoost Library."""
 from __future__ import absolute_import
 import collections
+import json
 # pylint: disable=no-name-in-module,import-error
 try:
     from collections.abc import Mapping  # Python 3
@@ -2490,6 +2491,17 @@ class Booster(object):
         _check_call(_LIB.XGBoosterGetAddressesInfo(
             self.handle, ctypes.byref(length), ctypes.byref(sarr)))
         return from_cstr_to_pystr(sarr, length)
+
+    def get_last_prediction_metrics(self):
+        """Return metrics collected during the most recent local prediction."""
+        if _CONF.get("remote_addr"):
+            return {}
+        metrics = ctypes.c_char_p()
+        _check_call(_LIB.XGBoosterGetLastPredictionMetrics(
+            self.handle, ctypes.byref(metrics)))
+        if not metrics.value:
+            return {}
+        return json.loads(py_str(metrics.value))
 
 ##########################################
 # Enclave init and attestation APIs

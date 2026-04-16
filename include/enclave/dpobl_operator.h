@@ -1105,7 +1105,6 @@ public:
     shuffle_preds.resize(noise_page.Size() * num_groups);
     // std::cout<<"noise_page.Size(): "<<noise_page.Size()<<std::endl;
     #ifdef PSRR_OSHUFFLE
-    logStr("/root/secure-xgboost/do-enhanced/data/time.log", "shuffleMethod: ", shuffle_method_);
     oshuffler = obl::getShuffler(shuffle_method_);
     // std::cout<<"noise_page.Size(): "<<noise_page.Size()<<" noise_page.fixed_row_size: "<<noise_page.fixed_row_size<<std::endl;
     // oshuffler = obl::create("BitonicShuffler");
@@ -1148,7 +1147,6 @@ public:
     shuffle_index.resize(noise_page.Size());
     shuffle_preds.resize(noise_page.Size() * num_groups);
     #ifdef PSRR_OSHUFFLE
-    logStr("/root/secure-xgboost/do-enhanced/data/time.log", "shuffleMethod: ", shuffle_method_);
     oshuffler = obl::getShuffler(shuffle_method_);
     oshuffler->shuffle((uint8_t*)noise_page.data.HostVector().data(), noise_page.Size(), noise_page.fixed_row_size*sizeof(xgboost::Entry));
     shuffle_page.Push(noise_page);

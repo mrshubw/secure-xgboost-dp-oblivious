@@ -222,6 +222,7 @@ class Learner : public Model, public Configurable, public rabit::Serializable {
    * \return Key-value pairs representing configuration arguments
    */
   virtual const std::map<std::string, std::string>& GetConfigurationArguments() const = 0;
+  virtual std::string GetLastPredictionMetrics() const = 0;
 
  protected:
   /*! \brief objective function */

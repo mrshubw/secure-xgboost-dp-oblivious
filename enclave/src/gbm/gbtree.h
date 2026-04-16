@@ -259,6 +259,10 @@ class GBTree : public GradientBooster {
   std::vector<std::string> GetAddressesInfo() const override {
     return model_.GetAddressesInfo();
   }
+  std::string GetLastPredictionMetrics() const override {
+    CHECK(configured_);
+    return this->GetPredictor()->GetLastPredictionMetrics();
+  }
 
  protected:
   // initialize updater before using them

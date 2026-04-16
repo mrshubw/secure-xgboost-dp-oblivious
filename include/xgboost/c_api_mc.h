@@ -726,7 +726,10 @@ XGB_DLL int XGBoosterPredict(BoosterHandle handle,
                              uint8_t* signatures[],
                              size_t* sig_lengths);
 
-/*!
+XGB_DLL int XGBoosterGetLastPredictionMetrics(BoosterHandle handle,
+                                              const char** out_metrics);
+
+/*! 
  * \brief load model from existing file
  * \param handle handle
  * \param fname file name
