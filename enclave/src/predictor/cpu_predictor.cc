@@ -651,9 +651,7 @@ class CPUPredictor : public Predictor {
     // }
     // =============================================
     
-    common::Monitor monitor1;
-    monitor1.Init("DO");
-    monitor1.StartForce(__func__);
+    common::Timer total_timer;
     // std::cout << "/* message */" << std::endl;
 
     std::lock_guard<std::mutex> guard(lock_);
@@ -681,28 +679,23 @@ class CPUPredictor : public Predictor {
       DOoperator do_operator(epsilon, delta, 1,
                              prediction_metrics_.shuffle_method);
       do_operator.Preprocess(batch, dummy_samples.page,
-                             dummy_samples.max_entries, &monitor1, num_group);
-      
-      monitor1.StartForce("PredictNO");
+                             dummy_samples.max_entries, &prediction_metrics_,
+                             num_group);
+
+      common::Timer predict_no_timer;
       PredictBatchKernel(SparsePageView<kUnroll>{&do_operator.shuffle_page}, &(do_operator.shuffle_preds), model,
                         tree_begin, tree_end, &thread_temp_, &monitor_);
-      monitor1.StopForce("PredictNO");
-      do_operator.PostProcess(out_preds, &monitor1);
-      
+      predict_no_timer.Stop();
+      prediction_metrics_.predict_no_seconds +=
+          predict_no_timer.ElapsedSeconds();
+      do_operator.PostProcess(out_preds, &prediction_metrics_);
+
     }
 
-    monitor1.StopForce(__func__);
+    total_timer.Stop();
     prediction_metrics_.has_do_metrics = true;
-    prediction_metrics_.add_dummy_seconds =
-        PredictionMetrics::Seconds(monitor1.GetCost("AddDummy"));
-    prediction_metrics_.post_process_seconds =
-        PredictionMetrics::Seconds(monitor1.GetCost("PostProcess"));
     prediction_metrics_.predict_dmatrix_do_seconds =
-        PredictionMetrics::Seconds(monitor1.GetCost(__func__));
-    prediction_metrics_.predict_no_seconds =
-        PredictionMetrics::Seconds(monitor1.GetCost("PredictNO"));
-    prediction_metrics_.shuffle_seconds =
-        PredictionMetrics::Seconds(monitor1.GetCost("shuffle"));
+        total_timer.ElapsedSeconds();
   }
 #endif
 

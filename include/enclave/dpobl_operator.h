@@ -13,6 +13,8 @@
 #include <vector>
 #include <sstream>
 
+#include "../../enclave/src/common/timer.h"
+#include "enclave/prediction_metrics.h"
 #include "enclave/obl_primitives.h"
 #include "xgboost/base.h"
 #include "xgboost/data.h"
@@ -1067,8 +1069,11 @@ public:
     
   }
 
-  template <typename Monitor>
-  void Preprocess(xgboost::SparsePage& in_page, std::vector<xgboost::SparsePage>& trees_dummy_samples, size_t tree_nodes_num, Monitor* monitor_ = nullptr, int trees_num=1, int num_groups=1){
+  void Preprocess(xgboost::SparsePage& in_page,
+                  std::vector<xgboost::SparsePage>& trees_dummy_samples,
+                  size_t tree_nodes_num,
+                  PredictionMetrics* metrics = nullptr, int trees_num=1,
+                  int num_groups=1){
     CHECK_GT(trees_num, 0);
     PrivacyBudget per_tree_budget =
         SplitPrivacyBudgetByAdvancedComposition(
@@ -1086,10 +1091,12 @@ public:
       xgboost::SparsePagePadding dummySamples(noise_page.fixed_row_size);
       ProduceDummySamples(dummySamples, trees_dummy_samples[i]);
 
-      // add dummy
-      if (monitor_ != nullptr) monitor_->StartForce("AddDummy");
+      xgboost::common::Timer add_dummy_timer;
       AddDummy(noise_page, dummySamples);
-      if (monitor_ != nullptr) monitor_->StopForce("AddDummy");
+      add_dummy_timer.Stop();
+      if (metrics != nullptr) {
+        metrics->add_dummy_seconds += add_dummy_timer.ElapsedSeconds();
+      }
     }
 
     // std::cout<<"the number of dummies: "<<noise_page.Size()-in_page.Size()<<std::endl;
@@ -1100,7 +1107,7 @@ public:
     // }
     
     // shuffle
-    if (monitor_ != nullptr) monitor_->StartForce("shuffle");
+    xgboost::common::Timer shuffle_timer;
     shuffle_index.resize(noise_page.Size());
     shuffle_preds.resize(noise_page.Size() * num_groups);
     // std::cout<<"noise_page.Size(): "<<noise_page.Size()<<std::endl;
@@ -1124,26 +1131,31 @@ public:
     Shuffler& shuffler = Shuffler::getInstance();
     shuffler.shuffleForwardRandom(noise_page, shuffle_page, shuffle_index);
     #endif
-    if (monitor_ != nullptr) monitor_->StopForce("shuffle");
+    shuffle_timer.Stop();
+    if (metrics != nullptr) {
+      metrics->shuffle_seconds += shuffle_timer.ElapsedSeconds();
+    }
   }
 
-  template <typename Monitor>
   void Preprocess(xgboost::SparsePage& in_page,
                   xgboost::SparsePage& dummy_samples,
                   size_t dummy_max_entries,
-                  Monitor* monitor_ = nullptr, int num_groups=1) {
+                  PredictionMetrics* metrics = nullptr, int num_groups=1) {
     const size_t fixed_row_size =
         std::max(in_page.MaxNumberOfEntries(), dummy_max_entries);
     xgboost::SparsePagePadding noise_page(fixed_row_size);
     noise_page.FrommSparsePage(in_page);
 
-    if (monitor_ != nullptr) monitor_->StartForce("AddDummy");
+    xgboost::common::Timer add_dummy_timer;
     for (size_t i = 0; i < dummy_samples.Size(); ++i) {
       noise_page.ExpandAndWrite(i, dummy_samples);
     }
-    if (monitor_ != nullptr) monitor_->StopForce("AddDummy");
+    add_dummy_timer.Stop();
+    if (metrics != nullptr) {
+      metrics->add_dummy_seconds += add_dummy_timer.ElapsedSeconds();
+    }
 
-    if (monitor_ != nullptr) monitor_->StartForce("shuffle");
+    xgboost::common::Timer shuffle_timer;
     shuffle_index.resize(noise_page.Size());
     shuffle_preds.resize(noise_page.Size() * num_groups);
     #ifdef PSRR_OSHUFFLE
@@ -1154,21 +1166,23 @@ public:
     Shuffler& shuffler = Shuffler::getInstance();
     shuffler.shuffleForwardRandom(noise_page, shuffle_page, shuffle_index);
     #endif
-    if (monitor_ != nullptr) monitor_->StopForce("shuffle");
+    shuffle_timer.Stop();
+    if (metrics != nullptr) {
+      metrics->shuffle_seconds += shuffle_timer.ElapsedSeconds();
+    }
   }
 
-  template <typename Monitor>
   void Preprocess(xgboost::SparsePage& in_page,
                   xgboost::SparsePage& dummy_samples,
-                  Monitor* monitor_ = nullptr, int num_groups=1) {
+                  PredictionMetrics* metrics = nullptr, int num_groups=1) {
     Preprocess(in_page, dummy_samples, dummy_samples.MaxNumberOfEntries(),
-               monitor_, num_groups);
+               metrics, num_groups);
   }
 
   // another method of post process, deprecated
-  template <typename Monitor>
-  void PostProcessAdd(std::vector<xgboost::bst_float>* out_preds, Monitor* monitor_ = nullptr){
-    if (monitor_ != nullptr) monitor_->StartForce("PostProcess");
+  void PostProcessAdd(std::vector<xgboost::bst_float>* out_preds,
+                      PredictionMetrics* metrics = nullptr){
+    xgboost::common::Timer post_process_timer;
     // for (size_t i = 0; i < shuffle_index.size(); i++)
     // {
     //   if (shuffle_index[i]>=out_preds->size())
@@ -1193,12 +1207,15 @@ public:
     //   (*out_preds)[i] += shuffle_preds[i];
     // }
     
-    if (monitor_ != nullptr) monitor_->StopForce("PostProcess");
+    post_process_timer.Stop();
+    if (metrics != nullptr) {
+      metrics->post_process_seconds += post_process_timer.ElapsedSeconds();
+    }
   }
 
-  template <typename Monitor>
-  void PostProcess(std::vector<xgboost::bst_float>* out_preds, Monitor* monitor_ = nullptr){
-    if (monitor_ != nullptr) monitor_->StartForce("PostProcess");
+  void PostProcess(std::vector<xgboost::bst_float>* out_preds,
+                   PredictionMetrics* metrics = nullptr){
+    xgboost::common::Timer post_process_timer;
 
     int num_groups = shuffle_preds.size() / shuffle_index.size();
 
@@ -1221,6 +1238,9 @@ public:
     }
     #endif
     
-    if (monitor_ != nullptr) monitor_->StopForce("PostProcess");
+    post_process_timer.Stop();
+    if (metrics != nullptr) {
+      metrics->post_process_seconds += post_process_timer.ElapsedSeconds();
+    }
   }
 };
