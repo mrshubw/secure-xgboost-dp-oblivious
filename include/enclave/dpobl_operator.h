@@ -976,6 +976,7 @@ private:
   double sensitivity;
   double sigma;
   double mean;
+  std::string shuffle_method_;
 public:
   xgboost::SparsePage shuffle_page;
   std::vector<int> shuffle_index;
@@ -985,7 +986,12 @@ public:
   #endif
 
   DOoperator(/* args */):DOoperator(1, 0.00001, 1){};
-  DOoperator(double epsilon, double delta, double sensitivity):epsilon(epsilon),delta(delta),sensitivity(sensitivity){
+  DOoperator(double epsilon, double delta, double sensitivity,
+             std::string shuffle_method = "BitonicShuffler")
+      : epsilon(epsilon),
+        delta(delta),
+        sensitivity(sensitivity),
+        shuffle_method_(shuffle_method) {
     // sigma = calculateSigma(epsilon, delta, sensitivity);
     // mean = calculateMean(sigma, delta);
     // std::cout<<"sigma: "<<sigma<<" mean: "<<mean<<std::endl;
@@ -1099,9 +1105,8 @@ public:
     shuffle_preds.resize(noise_page.Size() * num_groups);
     // std::cout<<"noise_page.Size(): "<<noise_page.Size()<<std::endl;
     #ifdef PSRR_OSHUFFLE
-    std::string shuffler_type = ReadParameterFromConfig<std::string>("/root/secure-xgboost/do-enhanced/data/config.txt", "shuffleMethod", "BitonicShuffler");
-    logStr("/root/secure-xgboost/do-enhanced/data/time.log", "shuffleMethod: ", shuffler_type);
-    oshuffler = obl::getShuffler(shuffler_type);
+    logStr("/root/secure-xgboost/do-enhanced/data/time.log", "shuffleMethod: ", shuffle_method_);
+    oshuffler = obl::getShuffler(shuffle_method_);
     // std::cout<<"noise_page.Size(): "<<noise_page.Size()<<" noise_page.fixed_row_size: "<<noise_page.fixed_row_size<<std::endl;
     // oshuffler = obl::create("BitonicShuffler");
     // auto temp_shuffler = new obl::BitonicShuffler;
@@ -1143,9 +1148,8 @@ public:
     shuffle_index.resize(noise_page.Size());
     shuffle_preds.resize(noise_page.Size() * num_groups);
     #ifdef PSRR_OSHUFFLE
-    std::string shuffler_type = ReadParameterFromConfig<std::string>("/root/secure-xgboost/do-enhanced/data/config.txt", "shuffleMethod", "BitonicShuffler");
-    logStr("/root/secure-xgboost/do-enhanced/data/time.log", "shuffleMethod: ", shuffler_type);
-    oshuffler = obl::getShuffler(shuffler_type);
+    logStr("/root/secure-xgboost/do-enhanced/data/time.log", "shuffleMethod: ", shuffle_method_);
+    oshuffler = obl::getShuffler(shuffle_method_);
     oshuffler->shuffle((uint8_t*)noise_page.data.HostVector().data(), noise_page.Size(), noise_page.fixed_row_size*sizeof(xgboost::Entry));
     shuffle_page.Push(noise_page);
     #else

@@ -11,6 +11,7 @@
 #include <cmath>
 #include <mutex>
 #include <random>
+#include <string>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -664,10 +665,10 @@ class CPUPredictor : public Predictor {
                    model.learner_model_param->num_output_group);
       size_t constexpr kUnroll = 8;
 
-      double epsilon = ReadParameterFromConfig("/root/secure-xgboost/do-enhanced/data/config.txt", "epsilon", 1.0); // 从文件读取 epsilon
-      // double epsilon = 1.0;
-      double delta = 0.00001;
+      double epsilon = doxie_epsilon_;
+      double delta = doxie_delta_;
       logStr("/root/secure-xgboost/do-enhanced/data/time.log", "epsilon: ", epsilon);
+      logStr("/root/secure-xgboost/do-enhanced/data/time.log", "delta: ", delta);
       int32_t const num_group = model.learner_model_param->num_output_group;
 
       auto representatives =
@@ -678,7 +679,7 @@ class CPUPredictor : public Predictor {
           tree_begin, tree_end, representatives, epsilon, delta, 1);
       DoxieDummySamples dummy_samples =
           BuildDoxieDummySamplesFromNoiseAndDomains(&noise, domains);
-      DOoperator do_operator(epsilon, delta, 1);
+      DOoperator do_operator(epsilon, delta, 1, doxie_shuffle_method_);
       do_operator.Preprocess(batch, dummy_samples.page,
                              dummy_samples.max_entries, &monitor1, num_group);
       
@@ -742,6 +743,19 @@ class CPUPredictor : public Predictor {
  public:
   explicit CPUPredictor(GenericParameter const* generic_param)
       : Predictor::Predictor{generic_param} {}
+
+  void Configure(const std::vector<std::pair<std::string, std::string>>& cfg) override {
+    Predictor::Configure(cfg);
+    for (auto const& kv : cfg) {
+      if (kv.first == "doxie_epsilon") {
+        doxie_epsilon_ = std::stod(kv.second);
+      } else if (kv.first == "doxie_delta") {
+        doxie_delta_ = std::stod(kv.second);
+      } else if (kv.first == "doxie_shuffle_method") {
+        doxie_shuffle_method_ = kv.second;
+      }
+    }
+  }
   // ntree_limit is a very problematic parameter, as it's ambiguous in the
   // context of multi-output and forest.  Same problem exists for tree_begin
   void PredictBatch(DMatrix* dmat, PredictionCacheEntry* predts,
@@ -1048,6 +1062,9 @@ class CPUPredictor : public Predictor {
   std::mutex lock_;
   std::vector<RegTree::FVec> thread_temp_;
   common::Monitor monitor_;
+  double doxie_epsilon_{1.0};
+  double doxie_delta_{0.00001};
+  std::string doxie_shuffle_method_{"BitonicShuffler"};
 };
 
 XGBOOST_REGISTER_PREDICTOR(CPUPredictor, "cpu_predictor")
