@@ -30,7 +30,7 @@
 #include "enclave/prediction_metrics.h"
 
 #ifdef __ENCLAVE_OBLIVIOUS__
-#include "enclave/dpobl_operator.h"
+#include "enclave/doxie_inference.h"
 #include "../common/quantile.h"
 #include "psrr/psrr.h"
 #include "psrr/doxie_memory.h"
@@ -676,19 +676,20 @@ class CPUPredictor : public Predictor {
           tree_begin, tree_end, representatives, epsilon, delta, 1);
       DoxieDummySamples dummy_samples =
           BuildDoxieDummySamplesFromNoiseAndDomains(&noise, domains);
-      DOoperator do_operator(epsilon, delta, 1,
-                             prediction_metrics_.shuffle_method);
-      do_operator.Preprocess(batch, dummy_samples.page,
-                             dummy_samples.max_entries, &prediction_metrics_,
-                             num_group);
+      DoxieInference doxie_inference(epsilon, delta, 1,
+                                     prediction_metrics_.shuffle_method);
+      doxie_inference.Preprocess(batch, dummy_samples.page,
+                                 dummy_samples.max_entries,
+                                 &prediction_metrics_, num_group);
 
       common::Timer predict_no_timer;
-      PredictBatchKernel(SparsePageView<kUnroll>{&do_operator.shuffle_page}, &(do_operator.shuffle_preds), model,
-                        tree_begin, tree_end, &thread_temp_, &monitor_);
+      PredictBatchKernel(SparsePageView<kUnroll>{&doxie_inference.shuffle_page},
+                         &(doxie_inference.shuffle_preds), model, tree_begin,
+                         tree_end, &thread_temp_, &monitor_);
       predict_no_timer.Stop();
       prediction_metrics_.predict_no_seconds +=
           predict_no_timer.ElapsedSeconds();
-      do_operator.PostProcess(out_preds, &prediction_metrics_);
+      doxie_inference.PostProcess(out_preds, &prediction_metrics_);
 
     }
 
