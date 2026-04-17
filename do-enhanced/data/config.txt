@@ -1,2 +1,0 @@
-epsilon=10.0
-shuffleMethod=BubbleShuffler

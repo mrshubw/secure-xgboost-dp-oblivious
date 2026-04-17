@@ -1,10 +1,8 @@
 import time
 import securexgboost as xgb
 import os
-import pandas as pd
 import argparse
 import csv
-from sklearn.metrics import accuracy_score, roc_auc_score
 from utils import *
 
 RESULTS_FILE = os.path.join(DATA_DIR, "prediction_results.csv")
@@ -45,56 +43,79 @@ def write_result(row, results_file=RESULTS_FILE):
             writer.writeheader()
         writer.writerow({field: row.get(field, "") for field in RESULT_FIELDS})
 
+def parse_data_sizes(data_sizes):
+    if isinstance(data_sizes, str):
+        return [int(data_size) for data_size in data_sizes.split(',') if data_size]
+    return [int(data_size) for data_size in data_sizes]
+
+def predict_batches(dataset, max_depth, num_rounds, data_size_list,
+                    epsilon=1.0, delta=0.00001,
+                    shuffle_method="BitonicShuffler",
+                    results_file=RESULTS_FILE):
+    initialize_xgboost()
+    data_dir = os.path.join(DATA_DIR, dataset)
+    model_name = f"modeld{max_depth}n{num_rounds}.model"
+    booster = xgb.Booster(model_file=os.path.join(data_dir, model_name))
+    booster.set_param({
+        "doxie_epsilon": epsilon,
+        "doxie_delta": delta,
+        "doxie_shuffle_method": shuffle_method,
+    })
+
+    for data_size in data_size_list:
+        enc_test_data = os.path.join(data_dir, f"data{data_size}.enc")
+        dtest = xgb.DMatrix({username: enc_test_data})
+        time_start = time.time()
+        preds = predict(booster=booster, dtest=dtest)
+        time_end = time.time()
+        time_response = time_end - time_start
+        metrics = booster.get_last_prediction_metrics()
+        row = {
+            "dataset": dataset,
+            "num_trees": num_rounds,
+            "data_size": data_size,
+            "depth": max_depth,
+            "time_response": time_response,
+        }
+        row.update(metrics)
+        write_result(row, results_file)
+
+def predict_once(dataset, max_depth, num_rounds, data_size,
+                 epsilon=1.0, delta=0.00001,
+                 shuffle_method="BitonicShuffler",
+                 results_file=RESULTS_FILE):
+    predict_batches(
+        dataset=dataset,
+        max_depth=max_depth,
+        num_rounds=num_rounds,
+        data_size_list=[data_size],
+        epsilon=epsilon,
+        delta=delta,
+        shuffle_method=shuffle_method,
+        results_file=results_file,
+    )
+
 def predict_all(dataset, max_depth_list, num_rounds_list, data_size_list,
                 epsilon=1.0, delta=0.00001,
                 shuffle_method="BitonicShuffler",
                 results_file=RESULTS_FILE):
-    initialize_xgboost()
-    data_dir = os.path.join(DATA_DIR, dataset)
-
-    dtest = {}
-    for data_size in data_size_list:
-        enc_test_data = os.path.join(data_dir, f"data{data_size}.enc")
-        dtest[f"{data_size}"] = xgb.DMatrix({username: enc_test_data})
-
-    booster = {}
     for num_rounds in num_rounds_list:
-        booster[f"{num_rounds}"] = {}
         for max_depth in max_depth_list:
-            model_name = f"modeld{max_depth}n{num_rounds}.model"
-            booster[f"{num_rounds}"][f"{max_depth}"] = xgb.Booster(model_file=os.path.join(data_dir, model_name))
-            booster[f"{num_rounds}"][f"{max_depth}"].set_param({
-                "doxie_epsilon": epsilon,
-                "doxie_delta": delta,
-                "doxie_shuffle_method": shuffle_method,
-            })
-    for num_rounds in num_rounds_list:
-        for data_size in data_size_list:
-            for max_depth in max_depth_list:
-                time_start = time.time()
-                preds = predict(booster=booster[f"{num_rounds}"][f"{max_depth}"], dtest=dtest[f"{data_size}"])
-                time_end = time.time()
-                time_response = time_end - time_start
-                metrics = booster[f"{num_rounds}"][f"{max_depth}"].get_last_prediction_metrics()
-                row = {
-                    "dataset": dataset,
-                    "num_trees": num_rounds,
-                    "data_size": data_size,
-                    "depth": max_depth,
-                    "epsilon": epsilon,
-                    "delta": delta,
-                    "shuffleMethod": shuffle_method,
-                    "time_response": time_response,
-                }
-                row.update(metrics)
-                write_result(row, results_file)
-
-                # evals(preds, os.path.join(data_dir, f"data{data_size}.txt"), log_file=LOG_FILE)
-    # with open(LOG_FILE, 'a') as file:
-    #     file.write("dataset: "+dataset+"\n")
-    #     file.write("=========================\n")
+            predict_batches(
+                dataset=dataset,
+                max_depth=max_depth,
+                num_rounds=num_rounds,
+                data_size_list=data_size_list,
+                epsilon=epsilon,
+                delta=delta,
+                shuffle_method=shuffle_method,
+                results_file=results_file,
+            )
 
 def evals(preds, test_labels_file, log_file=None):
+    import pandas as pd
+    from sklearn.metrics import accuracy_score, roc_auc_score
+
     test_data = pd.read_csv(test_labels_file, header=None, sep=" ", usecols=[0], names=["label"])
     y_test = test_data["label"].values
     threshold = 0.5
@@ -111,34 +132,30 @@ def evals(preds, test_labels_file, log_file=None):
     return accuracy, auc
 
 def main():
-    # Create the parser
-    parser = argparse.ArgumentParser(description="used for batch processing")
-
-    # Add arguments
-    parser.add_argument('-d', '--dataset', type=str, help="datset used", default="higgs")
-    parser.add_argument('-t', '--treesnum', type=int, help="number of trees", default=5)
-    parser.add_argument('-D', '--depth', type=int, help="maximum depth", default=0)
+    parser = argparse.ArgumentParser(description="run prediction for one booster")
+    parser.add_argument('--dataset', type=str, help="dataset used", default="higgs")
+    parser.add_argument('--treesnum', type=int, help="number of trees", default=5)
+    parser.add_argument('--depth', type=int, help="maximum depth", default=7)
+    parser.add_argument('--data-size', type=int, default=10000)
+    parser.add_argument('--data-sizes', type=str, default=None,
+                        help="comma separated batch sizes, e.g. 1000,10000,100000")
     parser.add_argument('--epsilon', type=float, default=1.0)
     parser.add_argument('--delta', type=float, default=0.00001)
     parser.add_argument('--shuffle-method', type=str, default="BitonicShuffler")
     parser.add_argument('--results-file', type=str, default=RESULTS_FILE)
 
-    # Parse the arguments
     args = parser.parse_args()
+    data_size_list = (
+        parse_data_sizes(args.data_sizes)
+        if args.data_sizes
+        else [args.data_size]
+    )
 
-    if args.depth == 0:
-        depth_list = [2, 3, 4, 5, 6, 7, 8, 9]
-        if args.treesnum == 5:
-            depth_list = [2, 3, 4, 5, 6, 7, 8, 9, 10]
-    else:
-        depth_list = [args.depth]
-
-
-    predict_all(
+    predict_batches(
         dataset=args.dataset,
-        max_depth_list=depth_list,
-        num_rounds_list=[args.treesnum],
-        data_size_list=[1000, 10000, 100000],
+        max_depth=args.depth,
+        num_rounds=args.treesnum,
+        data_size_list=data_size_list,
         epsilon=args.epsilon,
         delta=args.delta,
         shuffle_method=args.shuffle_method,
@@ -146,10 +163,4 @@ def main():
     )
 
 if __name__ == "__main__":
-    # main()
-
-    # predict_all(dataset="allstate", max_depth_list=range(3,11), num_rounds_list=[5], data_size_list=[1000, 10000, 100000])
-    # predict_all(dataset="higgs", max_depth_list=[9], num_rounds_list=[40], data_size_list=[10,50,100,200,300,400,500,600,700,800,900])
-    predict_all(dataset="higgs", max_depth_list=[8], num_rounds_list=[500], data_size_list=[10000])
-# [5, 10, 20, 40]
-# [2, 3, 4, 5, 6, 7, 8, 9, 10]
+    main()
