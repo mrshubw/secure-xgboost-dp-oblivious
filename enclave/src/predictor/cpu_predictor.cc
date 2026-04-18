@@ -71,8 +71,12 @@ bst_float PredValue(const SparsePage::Inst& inst,
 
       // 其他dp方案对此不进行改动
       // if (monitor_ != nullptr) monitor_->Start("GetLeafValue");
-      int tid = trees[i]->GetLeafIndex(*p_feats);
-      psum += (*trees[i])[tid].LeafValue();
+      if (trees[i]->HasDoxieMemory()) {
+        psum += trees[i]->GetLeafValueDoxie(*p_feats);
+      } else {
+        int tid = trees[i]->GetLeafIndex(*p_feats);
+        psum += (*trees[i])[tid].LeafValue();
+      }
       // if (monitor_ != nullptr) monitor_->Stop("GetLeafValue");
       // // used for sgx pte attack
       // std::cout << "tree " << i << " leaf index: " << tid << std::endl;
@@ -228,6 +232,64 @@ void PredictBatchKernel(DataView batch, std::vector<bst_float>* out_preds,
                                  &feats, tree_begin, tree_end, monitor_);
     }
   }
+  if (monitor_ != nullptr) monitor_->Stop(__func__);
+}
+
+template <typename DataView>
+void PredictBatchKernelDoxieBlocked(DataView batch,
+                                    std::vector<bst_float>* out_preds,
+                                    gbm::GBTreeModel const& model,
+                                    int32_t tree_begin, int32_t tree_end,
+                                    common::Monitor* monitor_ = nullptr) {
+  if (monitor_ != nullptr) monitor_->Start(__func__);
+  int32_t const num_group = model.learner_model_param->num_output_group;
+  int32_t const num_feature = model.learner_model_param->num_feature;
+
+  std::vector<bst_float>& preds = *out_preds;
+  CHECK_EQ(model.param.size_leaf_vector, 0)
+      << "size_leaf_vector is enforced to 0 so far";
+
+  const auto nsize = static_cast<bst_omp_uint>(batch.Size());
+  bst_omp_uint constexpr kBlockSize = 64;
+
+#pragma omp parallel
+  {
+    std::vector<RegTree::FVec> feats(kBlockSize);
+    std::vector<SparsePage::Inst> inst(kBlockSize);
+    for (auto& feat : feats) {
+      feat.Init(num_feature);
+    }
+
+#pragma omp for schedule(static)
+    for (bst_omp_uint block_begin = 0; block_begin < nsize;
+         block_begin += kBlockSize) {
+      const bst_omp_uint block_end =
+          std::min<bst_omp_uint>(nsize, block_begin + kBlockSize);
+      const bst_omp_uint block_len = block_end - block_begin;
+
+      for (bst_omp_uint k = 0; k < block_len; ++k) {
+        inst[k] = batch[block_begin + k];
+        feats[k].Fill(inst[k]);
+      }
+
+      for (int32_t tree_id = tree_begin; tree_id < tree_end; ++tree_id) {
+        const int gid = model.tree_info[tree_id];
+        CHECK_LT(gid, num_group);
+        const RegTree& tree = *model.trees[tree_id];
+        for (bst_omp_uint k = 0; k < block_len; ++k) {
+          const auto ridx =
+              static_cast<int64_t>(batch.base_rowid + block_begin + k);
+          const size_t offset = ridx * num_group + gid;
+          preds[offset] += tree.GetLeafValueDoxie(feats[k]);
+        }
+      }
+
+      for (bst_omp_uint k = 0; k < block_len; ++k) {
+        feats[k].Drop(inst[k]);
+      }
+    }
+  }
+
   if (monitor_ != nullptr) monitor_->Stop(__func__);
 }
 
@@ -646,9 +708,15 @@ class CPUPredictor : public Predictor {
                             gbm::GBTreeModel const& model, int32_t tree_begin,
                             int32_t tree_end){
     // ==== DOXIE PATCH START: 开启物理对齐内存 ====
-    // for (size_t i = tree_begin; i < tree_end; ++i) {
-    //   model.trees[i]->EnableDoxieMemory();
-    // }
+    if (prediction_metrics_.doxie_memory_alignment) {
+      for (size_t i = tree_begin; i < tree_end; ++i) {
+        model.trees[i]->EnableDoxieMemory();
+      }
+    } else {
+      for (size_t i = tree_begin; i < tree_end; ++i) {
+        model.trees[i]->DisableDoxieMemory();
+      }
+    }
     // =============================================
     
     common::Timer total_timer;
@@ -683,9 +751,17 @@ class CPUPredictor : public Predictor {
                                  &prediction_metrics_, num_group);
 
       common::Timer predict_no_timer;
-      PredictBatchKernel(SparsePageView<kUnroll>{&doxie_inference.shuffle_page},
-                         &(doxie_inference.shuffle_preds), model, tree_begin,
-                         tree_end, &thread_temp_, &monitor_);
+      if (prediction_metrics_.doxie_memory_alignment &&
+          prediction_metrics_.doxie_blocked_kernel) {
+        PredictBatchKernelDoxieBlocked(
+            SparsePageView<kUnroll>{&doxie_inference.shuffle_page},
+            &(doxie_inference.shuffle_preds), model, tree_begin, tree_end,
+            &monitor_);
+      } else {
+        PredictBatchKernel(SparsePageView<kUnroll>{&doxie_inference.shuffle_page},
+                           &(doxie_inference.shuffle_preds), model, tree_begin,
+                           tree_end, &thread_temp_, &monitor_);
+      }
       predict_no_timer.Stop();
       prediction_metrics_.predict_no_seconds +=
           predict_no_timer.ElapsedSeconds();
@@ -757,6 +833,10 @@ class CPUPredictor : public Predictor {
         prediction_metrics_.delta = std::stod(kv.second);
       } else if (kv.first == "doxie_shuffle_method") {
         prediction_metrics_.shuffle_method = kv.second;
+      } else if (kv.first == "doxie_memory_alignment") {
+        prediction_metrics_.doxie_memory_alignment = kv.second == "true";
+      } else if (kv.first == "doxie_blocked_kernel") {
+        prediction_metrics_.doxie_blocked_kernel = kv.second == "true";
       }
     }
   }

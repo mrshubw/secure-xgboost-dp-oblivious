@@ -8,16 +8,11 @@
 
 #include <cstdint>
 #include <vector>
+#include "psrr/doxie_memory_config.h"
 #include "xgboost/tree_model.h" 
 
 namespace xgboost {
 namespace doxie {
-
-// 修改点 1: 加上 DOXIE_ 前缀以避免与操作系统的全局宏产生冲突
-constexpr uint32_t DOXIE_PAGE_SIZE = 4096;
-constexpr uint32_t DOXIE_NODE_SIZE = 20; 
-constexpr uint32_t DOXIE_NODES_PER_PAGE = DOXIE_PAGE_SIZE / DOXIE_NODE_SIZE; // 204 个节点
-constexpr uint32_t MERGE_LEVEL_LIMIT = 7; // 前 7 层（层号 0-6）打包在一起
 
 /*!
  * \brief 获取转换所需分配的总 4KB 内存页数

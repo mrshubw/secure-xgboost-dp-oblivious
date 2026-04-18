@@ -15,8 +15,10 @@
 #include <xgboost/feature_map.h>
 #include <xgboost/logging.h>
 #include <xgboost/model.h>
+#include <psrr/doxie_memory_config.h>
 
 #include <algorithm>
+#include <cstdint>
 #include <cstring>
 #include <cstdlib>
 #include <iostream>
@@ -293,32 +295,23 @@ class RegTree : public Model {
     stash_.SetTree(this);
 #endif
   }
+  ~RegTree() override;
   // ==== DOXIE PATCH: 声明生命周期控制函数 ====
   void EnableDoxieMemory() const;
   void DisableDoxieMemory() const;
+  bool HasDoxieMemory() const { return doxie_aligned_nodes_ != nullptr; }
+  const Node& DoxieNode(int nid) const { return *GetDoxieNode(nid); }
   // ===========================================
 
   /*! \brief get node given nid */
-  Node& operator[](int nid) { 
-    // ==== DOXIE PATCH: 重载非 const 访问 ====
-    // if (doxie_aligned_nodes_ != nullptr) {
-    //     return *const_cast<Node*>(GetDoxieNode(nid));
-    // }
-    return nodes_[nid]; 
+  Node& operator[](int nid) {
+    return nodes_[nid];
   }
-  
+
   /*! \brief get node given nid */
-  const Node& operator[](int nid) const { 
-    // ==== DOXIE PATCH: 重载 const 访问 ====
-    // if (doxie_aligned_nodes_ != nullptr) {
-    //     return *GetDoxieNode(nid);
-    // }
-    return nodes_[nid]; 
+  const Node& operator[](int nid) const {
+    return nodes_[nid];
   }
-  // /*! \brief get node given nid */
-  // Node& operator[](int nid) { return nodes_[nid]; }
-  // /*! \brief get node given nid */
-  // const Node& operator[](int nid) const { return nodes_[nid]; }
 
   /*! \brief get const reference to nodes */
   const std::vector<Node>& GetNodes() const { return nodes_; }
@@ -532,6 +525,7 @@ class RegTree : public Model {
    * set to NaN \return the leaf index of the given feature
    */
   int GetLeafIndex(const FVec& feat) const;
+  bst_float GetLeafValueDoxie(const FVec& feat) const;
 #ifdef __ENCLAVE_OBLIVIOUS__
   /*!
    * \brief get the leaf value obliviously
@@ -880,41 +874,41 @@ class RegTree : public Model {
   // ==== DOXIE PATCH: 内部寻址支持 ====
   // mutable 允许我们在 const 树对象上分配临时内存
   mutable uint8_t* doxie_aligned_nodes_{nullptr};
+  mutable std::vector<uint32_t> doxie_page_start_;
+
+  inline void BuildDoxiePageStarts(uint32_t depth) const {
+    doxie_page_start_.assign(depth, 0);
+    uint32_t page_idx = 1;
+    for (uint32_t level = xgboost::doxie::MERGE_LEVEL_LIMIT; level < depth;
+         ++level) {
+      doxie_page_start_[level] = page_idx;
+      const uint64_t nodes_in_level = uint64_t{1} << level;
+      page_idx += static_cast<uint32_t>(
+          (nodes_in_level + xgboost::doxie::DOXIE_NODES_PER_PAGE - 1) /
+          xgboost::doxie::DOXIE_NODES_PER_PAGE);
+    }
+  }
 
   // 内联的 O(1) 物理地址解算函数
   inline const Node* GetDoxieNode(int nid) const {
-    uint32_t d = 31 - __builtin_clz(nid + 1);
-    if (d < 7) {
-        return reinterpret_cast<const Node*>(doxie_aligned_nodes_ + nid * 20);
+    const uint32_t logical_index = static_cast<uint32_t>(nid);
+    uint32_t d = 31 - __builtin_clz(logical_index + 1);
+    if (d < xgboost::doxie::MERGE_LEVEL_LIMIT) {
+        return reinterpret_cast<const Node*>(
+            doxie_aligned_nodes_ +
+            logical_index * xgboost::doxie::DOXIE_NODE_SIZE);
     }
-    
-    // ==== 极致优化：使用静态查表法替代 for 循环 ====
-    // 预先计算好的 d层 (d=0~16) 对应的 page_idx 起始偏移
-    // d=7: 1, d=8: 1+ceil(128/204)=2, d=9: 2+ceil(256/204)=4 ...
-    static const uint32_t PAGE_START[] = {
-        0, 0, 0, 0, 0, 0, 0,    // d = 0 到 6
-        1,                      // d = 7
-        2,                      // d = 8
-        4,                      // d = 9
-        7,                      // d = 10
-        12,                     // d = 11
-        23,                     // d = 12
-        44,                     // d = 13
-        85,                     // d = 14
-        166,                    // d = 15
-        327                     // d = 16
-    };
-    
-    uint32_t page_idx = PAGE_START[d];
-    uint32_t idx_in_level = nid - ((1 << d) - 1);
-    
-    // 编译器会对常数 204 的除法进行乘法逆元优化，速度极快
-    uint32_t p_offset = idx_in_level / 204;
-    uint32_t n_offset = idx_in_level % 204;
-    
-    return reinterpret_cast<const Node*>(doxie_aligned_nodes_ + (page_idx + p_offset) * 4096 + n_offset * 20);
-    // return &nodes_[nid];
-}
+
+    uint32_t page_idx = doxie_page_start_[d];
+    uint32_t idx_in_level = logical_index - ((uint32_t{1} << d) - 1);
+    uint32_t p_offset = idx_in_level / xgboost::doxie::DOXIE_NODES_PER_PAGE;
+    uint32_t n_offset = idx_in_level % xgboost::doxie::DOXIE_NODES_PER_PAGE;
+
+    return reinterpret_cast<const Node*>(
+        doxie_aligned_nodes_ +
+        (page_idx + p_offset) * xgboost::doxie::DOXIE_PAGE_SIZE +
+        n_offset * xgboost::doxie::DOXIE_NODE_SIZE);
+  }
 
   // allocate a new node,
   // !!!!!! NOTE: may cause BUG here, nodes.resize
@@ -1007,6 +1001,25 @@ inline int RegTree::GetLeafIndex(const RegTree::FVec& feat) const {
                         feat.IsMissing(split_index));
   }
   return nid;
+}
+
+inline bst_float RegTree::GetLeafValueDoxie(const RegTree::FVec& feat) const {
+  bst_node_t nid = 0;
+  while (true) {
+    const Node& node = this->DoxieNode(nid);
+    if (node.IsLeaf()) {
+      return node.LeafValue();
+    }
+
+    const unsigned split_index = node.SplitIndex();
+    if (feat.IsMissing(split_index)) {
+      nid = node.DefaultChild();
+    } else if (feat.GetFvalue(split_index) < node.SplitCond()) {
+      nid = node.LeftChild();
+    } else {
+      nid = node.RightChild();
+    }
+  }
 }
 
 /*! \brief get next position of the tree given current pid */

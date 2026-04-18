@@ -17,6 +17,8 @@ RESULT_FIELDS = [
     "epsilon",
     "delta",
     "shuffleMethod",
+    "doxieMemoryAlignment",
+    "doxieBlockedKernel",
     "PredictDMatrixDO",
     "PredictNO",
     "AddDummy",
@@ -51,6 +53,8 @@ def parse_data_sizes(data_sizes):
 def predict_batches(dataset, max_depth, num_rounds, data_size_list,
                     epsilon=1.0, delta=0.00001,
                     shuffle_method="BitonicShuffler",
+                    doxie_memory_alignment=True,
+                    doxie_blocked_kernel=True,
                     results_file=RESULTS_FILE):
     initialize_xgboost()
     data_dir = os.path.join(DATA_DIR, dataset)
@@ -60,6 +64,8 @@ def predict_batches(dataset, max_depth, num_rounds, data_size_list,
         "doxie_epsilon": epsilon,
         "doxie_delta": delta,
         "doxie_shuffle_method": shuffle_method,
+        "doxie_memory_alignment": "true" if doxie_memory_alignment else "false",
+        "doxie_blocked_kernel": "true" if doxie_blocked_kernel else "false",
     })
 
     for data_size in data_size_list:
@@ -83,6 +89,8 @@ def predict_batches(dataset, max_depth, num_rounds, data_size_list,
 def predict_once(dataset, max_depth, num_rounds, data_size,
                  epsilon=1.0, delta=0.00001,
                  shuffle_method="BitonicShuffler",
+                 doxie_memory_alignment=True,
+                 doxie_blocked_kernel=True,
                  results_file=RESULTS_FILE):
     predict_batches(
         dataset=dataset,
@@ -92,6 +100,8 @@ def predict_once(dataset, max_depth, num_rounds, data_size,
         epsilon=epsilon,
         delta=delta,
         shuffle_method=shuffle_method,
+        doxie_memory_alignment=doxie_memory_alignment,
+        doxie_blocked_kernel=doxie_blocked_kernel,
         results_file=results_file,
     )
 
@@ -134,14 +144,22 @@ def evals(preds, test_labels_file, log_file=None):
 def main():
     parser = argparse.ArgumentParser(description="run prediction for one booster")
     parser.add_argument('--dataset', type=str, help="dataset used", default="higgs")
-    parser.add_argument('--treesnum', type=int, help="number of trees", default=5)
-    parser.add_argument('--depth', type=int, help="maximum depth", default=7)
+    parser.add_argument('--treesnum', type=int, help="number of trees", default=500)
+    parser.add_argument('--depth', type=int, help="maximum depth", default=8)
     parser.add_argument('--data-size', type=int, default=10000)
     parser.add_argument('--data-sizes', type=str, default=None,
                         help="comma separated batch sizes, e.g. 1000,10000,100000")
     parser.add_argument('--epsilon', type=float, default=1.0)
     parser.add_argument('--delta', type=float, default=0.00001)
     parser.add_argument('--shuffle-method', type=str, default="BitonicShuffler")
+    parser.add_argument('--doxie-memory-alignment',
+                        choices=["true", "false"],
+                        default="false",
+                        help="enable DOXIE page-aligned tree memory")
+    parser.add_argument('--doxie-blocked-kernel',
+                        choices=["true", "false"],
+                        default="false",
+                        help="use the block-major DOXIE prediction kernel")
     parser.add_argument('--results-file', type=str, default=RESULTS_FILE)
 
     args = parser.parse_args()
@@ -159,6 +177,8 @@ def main():
         epsilon=args.epsilon,
         delta=args.delta,
         shuffle_method=args.shuffle_method,
+        doxie_memory_alignment=args.doxie_memory_alignment == "true",
+        doxie_blocked_kernel=args.doxie_blocked_kernel == "true",
         results_file=args.results_file,
     )
 

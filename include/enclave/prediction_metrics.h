@@ -14,6 +14,8 @@ struct PredictionMetrics {
   double epsilon{1.0};
   double delta{0.00001};
   std::string shuffle_method{"BitonicShuffler"};
+  bool doxie_memory_alignment{true};
+  bool doxie_blocked_kernel{true};
 
   double add_dummy_seconds{0.0};
   double post_process_seconds{0.0};
@@ -57,6 +59,10 @@ struct PredictionMetrics {
       os << ",\"epsilon\":" << epsilon;
       os << ",\"delta\":" << delta;
       os << ",\"shuffleMethod\":\"" << EscapeJson(shuffle_method) << "\"";
+      os << ",\"doxieMemoryAlignment\":"
+         << (doxie_memory_alignment ? "true" : "false");
+      os << ",\"doxieBlockedKernel\":"
+         << (doxie_blocked_kernel ? "true" : "false");
       os << ",\"AddDummy\":" << add_dummy_seconds;
       os << ",\"PostProcess\":" << post_process_seconds;
       os << ",\"PredictDMatrixDO\":" << predict_dmatrix_do_seconds;
