@@ -271,7 +271,7 @@ void AddDomainConstraint(NodeDomain* domain, unsigned feature,
 
 NodeDomain BuildNodeDomain(RegTree const& tree, int representative_nid) {
   NodeDomain domain;
-  domain.reserve(16);
+  domain.reserve(8);
   bst_node_t nid = representative_nid;
   while (nid != 0) {
     const auto& node = tree[nid];
@@ -323,7 +323,8 @@ std::vector<std::vector<size_t>> SampleRepresentativeNoise(
   const double sigma =
       calculateSigma(per_tree_budget.epsilon, per_tree_budget.delta,
                      sensitivity);
-  const double mean = calculateMean(sigma, per_tree_budget.delta);
+  const double mean =
+      calculateMean(sigma, per_tree_budget.delta, representatives.size());
 
   std::random_device rd;
   std::mt19937 gen(rd());
