@@ -7,6 +7,7 @@
 #include <cstring>
 #include <limits>
 #include <memory>
+#include <mutex>
 #include <random>
 #include <string>
 #include <vector>
@@ -16,7 +17,31 @@
 #include "enclave/obl_primitives.h"
 #include "xgboost/base.h"
 #include "xgboost/data.h"
+#include "xgboost/tree_model.h"
 #include "psrr/shuffle.h"
+
+namespace xgboost {
+namespace common {
+struct Monitor;
+}  // namespace common
+namespace gbm {
+struct GBTreeModel;
+}  // namespace gbm
+namespace doxie {
+
+struct InferenceContext {
+  PredictionMetrics* metrics{nullptr};
+  common::Monitor* monitor{nullptr};
+  std::vector<RegTree::FVec>* thread_temp{nullptr};
+  std::mutex* lock{nullptr};
+};
+
+void PredictDMatrix(DMatrix* p_fmat, std::vector<bst_float>* out_preds,
+                    gbm::GBTreeModel const& model, int32_t tree_begin,
+                    int32_t tree_end, InferenceContext* context);
+
+}  // namespace doxie
+}  // namespace xgboost
 
 // 计算标准正态分布的分位数（近似算法）
 inline double inverseCDF(double p) {
