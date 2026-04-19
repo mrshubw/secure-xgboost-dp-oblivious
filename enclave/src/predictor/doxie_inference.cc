@@ -10,8 +10,10 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <limits>
 #include <random>
+#include <type_traits>
 #include <vector>
 
 #include "../common/timer.h"
@@ -377,6 +379,34 @@ bool IsDefaultUpper(bst_float value) {
   return value == std::numeric_limits<bst_float>::max();
 }
 
+template <typename T>
+typename std::enable_if<std::is_integral<T>::value && !std::is_same<T, bool>::value,
+                        T>::type
+FastObliviousChoose(bool pred, T t_val, T f_val) {
+  const T mask = static_cast<T>(0) - static_cast<T>(pred);
+  return (t_val & mask) | (f_val & ~mask);
+}
+
+bool FastObliviousChoose(bool pred, bool t_val, bool f_val) {
+  return FastObliviousChoose<uint8_t>(
+             pred, static_cast<uint8_t>(t_val), static_cast<uint8_t>(f_val)) !=
+         0;
+}
+
+bst_float FastObliviousChoose(bool pred, bst_float t_val, bst_float f_val) {
+  static_assert(sizeof(bst_float) == sizeof(uint32_t),
+                "Fast bst_float select expects 32-bit float.");
+  uint32_t t_bits;
+  uint32_t f_bits;
+  std::memcpy(&t_bits, &t_val, sizeof(t_bits));
+  std::memcpy(&f_bits, &f_val, sizeof(f_bits));
+  const uint32_t mask = 0U - static_cast<uint32_t>(pred);
+  const uint32_t out_bits = (t_bits & mask) | (f_bits & ~mask);
+  bst_float out;
+  std::memcpy(&out, &out_bits, sizeof(out));
+  return out;
+}
+
 std::vector<unsigned> CollectWorkingDomainFeatures(
     const std::vector<std::vector<NodeDomain>>& domains) {
   std::vector<unsigned> features;
@@ -470,16 +500,19 @@ void ApplyDenseWorkingDomainIntersect(DenseWorkingDomain* working_domain,
     const bool found = working_domain->active[index] != 0;
     const bst_float current_lower = working_domain->lower[index];
     const bst_float current_upper = working_domain->upper[index];
-    const bst_float next_lower =
-        found ? std::max(current_lower, candidate_item.lower)
-              : candidate_item.lower;
-    const bst_float next_upper =
-        found ? std::min(current_upper, candidate_item.upper)
-              : candidate_item.upper;
-    working_domain->lower[index] = enabled ? next_lower : current_lower;
-    working_domain->upper[index] = enabled ? next_upper : current_upper;
+    const bst_float next_lower = FastObliviousChoose(
+        found, std::max(current_lower, candidate_item.lower),
+        candidate_item.lower);
+    const bst_float next_upper = FastObliviousChoose(
+        found, std::min(current_upper, candidate_item.upper),
+        candidate_item.upper);
+    working_domain->lower[index] =
+        FastObliviousChoose(enabled, next_lower, current_lower);
+    working_domain->upper[index] =
+        FastObliviousChoose(enabled, next_upper, current_upper);
     working_domain->active[index] =
-        enabled ? static_cast<uint8_t>(1) : working_domain->active[index];
+        FastObliviousChoose(enabled, static_cast<uint8_t>(1),
+                            working_domain->active[index]);
   }
 }
 
@@ -540,11 +573,8 @@ void ApplySelectedDenseWorkingDomainIntersect(
     DenseWorkingDomain* working_domain, const IndexedNodeDomain& candidate,
     bool enabled) {
   TouchDenseWorkingDomainPages(*working_domain);
-  if (!enabled) {
-    TouchIndexedDomain(candidate);
-    return;
-  }
-  ApplyDenseWorkingDomainIntersect(working_domain, candidate, true);
+  TouchIndexedDomain(candidate);
+  ApplyDenseWorkingDomainIntersect(working_domain, candidate, enabled);
 }
 
 NoisePosition SelectFirstPositiveNoiseOblivious(
@@ -555,10 +585,13 @@ NoisePosition SelectFirstPositiveNoiseOblivious(
          representative_pos < noise[tree_pos].size(); ++representative_pos) {
       const bool should_select =
           !selected.found && noise[tree_pos][representative_pos] > 0;
-      selected.tree_pos = should_select ? tree_pos : selected.tree_pos;
+      selected.tree_pos =
+          FastObliviousChoose(should_select, tree_pos, selected.tree_pos);
       selected.representative_pos =
-          should_select ? representative_pos : selected.representative_pos;
-      selected.found = selected.found || should_select;
+          FastObliviousChoose(should_select, representative_pos,
+                              selected.representative_pos);
+      selected.found =
+          FastObliviousChoose(should_select, true, selected.found);
     }
   }
   return selected;
@@ -575,7 +608,7 @@ void DecrementSelectedNoiseOblivious(
           representative_pos == selected.representative_pos;
       const size_t value = (*noise)[tree_pos][representative_pos];
       (*noise)[tree_pos][representative_pos] =
-          should_decrement ? value - 1 : value;
+          value - FastObliviousChoose<size_t>(should_decrement, 1, 0);
     }
   }
 }
@@ -589,7 +622,7 @@ void DecrementSelectedNoiseInTreeOblivious(
         selected.found && representative_pos == selected.representative_pos;
     const size_t value = (*noise)[tree_pos][representative_pos];
     (*noise)[tree_pos][representative_pos] =
-        should_decrement ? value - 1 : value;
+        value - FastObliviousChoose<size_t>(should_decrement, 1, 0);
   }
 }
 
@@ -639,10 +672,12 @@ NoisePosition SelectCompatibleRepresentativeOblivious(
     const bool should_select =
         !selected.found && !is_seed_tree &&
         noise[tree_pos][representative_pos] > 0 && can_intersect;
-    selected.tree_pos = should_select ? tree_pos : selected.tree_pos;
+    selected.tree_pos =
+        FastObliviousChoose(should_select, tree_pos, selected.tree_pos);
     selected.representative_pos =
-        should_select ? representative_pos : selected.representative_pos;
-    selected.found = selected.found || should_select;
+        FastObliviousChoose(should_select, representative_pos,
+                            selected.representative_pos);
+    selected.found = FastObliviousChoose(should_select, true, selected.found);
   }
   return selected;
 }
@@ -720,7 +755,7 @@ DummySamples BuildDummySamplesFromNoiseAndDomains(
       ApplySelectedDomainInTreeOblivious(&dummy_domain, indexed_domains,
                                          tree_pos, selected);
       DecrementSelectedNoiseInTreeOblivious(noise, tree_pos, selected);
-      remaining_noise -= selected.found ? 1 : 0;
+      remaining_noise -= FastObliviousChoose<size_t>(selected.found, 1, 0);
     }
 
     BuildDummyEntries(dummy_domain, &entries);
