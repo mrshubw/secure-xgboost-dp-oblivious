@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <random>
 #include <vector>
@@ -48,16 +49,34 @@ using NodeDomain = std::vector<FeatureDomain>;
 struct NoisePosition {
   size_t tree_pos;
   size_t representative_pos;
+  bool found;
 
-  NoisePosition() : tree_pos(0), representative_pos(0) {}
+  NoisePosition() : tree_pos(0), representative_pos(0), found(false) {}
   NoisePosition(size_t tree, size_t representative)
-      : tree_pos(tree), representative_pos(representative) {}
+      : tree_pos(tree), representative_pos(representative), found(true) {}
 };
 
 struct DummySamples {
   SparsePage page;
   size_t max_entries{0};
 };
+
+struct DenseWorkingDomain {
+  std::vector<unsigned> features;
+  std::vector<bst_float> lower;
+  std::vector<bst_float> upper;
+  std::vector<uint8_t> active;
+};
+
+struct IndexedFeatureDomain {
+  size_t index{0};
+  unsigned feature{0};
+  bst_float lower{std::numeric_limits<bst_float>::lowest()};
+  bst_float upper{std::numeric_limits<bst_float>::max()};
+};
+
+using IndexedNodeDomain = std::vector<IndexedFeatureDomain>;
+using IndexedDomains = std::vector<std::vector<IndexedNodeDomain>>;
 
 void InitThreadTemp(int nthread, int num_feature,
                     std::vector<RegTree::FVec>* out) {
@@ -350,71 +369,6 @@ size_t CountRemainingNoise(const std::vector<std::vector<size_t>>& noise) {
   return remaining_noise;
 }
 
-NoisePosition FindSeed(const std::vector<std::vector<size_t>>& noise,
-                       NoisePosition* cursor) {
-  CHECK(cursor != nullptr);
-  for (size_t tree_pos = cursor->tree_pos; tree_pos < noise.size();
-       ++tree_pos) {
-    const size_t representative_begin =
-        tree_pos == cursor->tree_pos ? cursor->representative_pos : 0;
-    for (size_t representative_pos = representative_begin;
-         representative_pos < noise[tree_pos].size(); ++representative_pos) {
-      if (noise[tree_pos][representative_pos] > 0) {
-        *cursor = NoisePosition(tree_pos, representative_pos);
-        return NoisePosition(tree_pos, representative_pos);
-      }
-    }
-  }
-  LOG(FATAL) << "FindSeed requires at least one positive noise value.";
-  return NoisePosition();
-}
-
-bool CanIntersectDomain(const NodeDomain& current,
-                        const NodeDomain& candidate) {
-  for (const auto& candidate_item : candidate) {
-    bool found = false;
-    for (const auto& current_item : current) {
-      if (current_item.feature == candidate_item.feature) {
-        const bst_float lower =
-            std::max(current_item.lower, candidate_item.lower);
-        const bst_float upper =
-            std::min(current_item.upper, candidate_item.upper);
-        if (!(lower < upper)) {
-          return false;
-        }
-        found = true;
-        break;
-      }
-    }
-    if (!found) {
-      if (!(candidate_item.lower < candidate_item.upper)) {
-        return false;
-      }
-    }
-  }
-
-  return true;
-}
-
-void ApplyIntersectDomain(NodeDomain* current, const NodeDomain& candidate) {
-  for (const auto& candidate_item : candidate) {
-    bool found = false;
-    for (auto& current_item : *current) {
-      if (current_item.feature == candidate_item.feature) {
-        current_item.lower =
-            std::max(current_item.lower, candidate_item.lower);
-        current_item.upper =
-            std::min(current_item.upper, candidate_item.upper);
-        found = true;
-        break;
-      }
-    }
-    if (!found) {
-      current->push_back(candidate_item);
-    }
-  }
-}
-
 bool IsDefaultLower(bst_float value) {
   return value == std::numeric_limits<bst_float>::lowest();
 }
@@ -423,34 +377,319 @@ bool IsDefaultUpper(bst_float value) {
   return value == std::numeric_limits<bst_float>::max();
 }
 
-void BuildDummyEntries(const NodeDomain& domain,
+std::vector<unsigned> CollectWorkingDomainFeatures(
+    const std::vector<std::vector<NodeDomain>>& domains) {
+  std::vector<unsigned> features;
+  for (const auto& tree_domains : domains) {
+    for (const auto& domain : tree_domains) {
+      for (const auto& item : domain) {
+        features.push_back(item.feature);
+      }
+    }
+  }
+  std::sort(features.begin(), features.end());
+  features.erase(std::unique(features.begin(), features.end()),
+                 features.end());
+  return features;
+}
+
+void InitDenseWorkingDomain(std::vector<unsigned> features,
+                            DenseWorkingDomain* working_domain) {
+  working_domain->features = std::move(features);
+  const size_t size = working_domain->features.size();
+  working_domain->lower.resize(size);
+  working_domain->upper.resize(size);
+  working_domain->active.resize(size);
+}
+
+size_t DenseWorkingDomainFeatureIndex(const DenseWorkingDomain& working_domain,
+                                      unsigned feature) {
+  const auto begin = working_domain.features.begin();
+  const auto end = working_domain.features.end();
+  const auto iter = std::lower_bound(begin, end, feature);
+  CHECK(iter != end);
+  CHECK_EQ(*iter, feature);
+  return static_cast<size_t>(iter - begin);
+}
+
+IndexedDomains BuildIndexedDomains(
+    const std::vector<std::vector<NodeDomain>>& domains,
+    const DenseWorkingDomain& working_domain) {
+  IndexedDomains indexed_domains(domains.size());
+  for (size_t tree_pos = 0; tree_pos < domains.size(); ++tree_pos) {
+    indexed_domains[tree_pos].reserve(domains[tree_pos].size());
+    for (const auto& domain : domains[tree_pos]) {
+      IndexedNodeDomain indexed_domain;
+      indexed_domain.reserve(domain.size());
+      for (const auto& item : domain) {
+        IndexedFeatureDomain indexed_item;
+        indexed_item.index =
+            DenseWorkingDomainFeatureIndex(working_domain, item.feature);
+        indexed_item.feature = item.feature;
+        indexed_item.lower = item.lower;
+        indexed_item.upper = item.upper;
+        indexed_domain.push_back(indexed_item);
+      }
+      indexed_domains[tree_pos].push_back(std::move(indexed_domain));
+    }
+  }
+  return indexed_domains;
+}
+
+void ResetDenseWorkingDomain(DenseWorkingDomain* working_domain) {
+  std::fill(working_domain->lower.begin(), working_domain->lower.end(),
+            std::numeric_limits<bst_float>::lowest());
+  std::fill(working_domain->upper.begin(), working_domain->upper.end(),
+            std::numeric_limits<bst_float>::max());
+  std::fill(working_domain->active.begin(), working_domain->active.end(), 0);
+}
+
+bool DenseWorkingDomainCanIntersect(const DenseWorkingDomain& working_domain,
+                                    const IndexedNodeDomain& candidate) {
+  bool can_intersect = true;
+  for (const auto& candidate_item : candidate) {
+    const size_t index = candidate_item.index;
+    const bool found = working_domain.active[index] != 0;
+    const bool candidate_valid = candidate_item.lower < candidate_item.upper;
+    const bst_float lower =
+        std::max(working_domain.lower[index], candidate_item.lower);
+    const bst_float upper =
+        std::min(working_domain.upper[index], candidate_item.upper);
+    can_intersect =
+        can_intersect && ((found && lower < upper) ||
+                          (!found && candidate_valid));
+  }
+  return can_intersect;
+}
+
+void ApplyDenseWorkingDomainIntersect(DenseWorkingDomain* working_domain,
+                                      const IndexedNodeDomain& candidate,
+                                      bool enabled) {
+  for (const auto& candidate_item : candidate) {
+    const size_t index = candidate_item.index;
+    const bool found = working_domain->active[index] != 0;
+    const bst_float current_lower = working_domain->lower[index];
+    const bst_float current_upper = working_domain->upper[index];
+    const bst_float next_lower =
+        found ? std::max(current_lower, candidate_item.lower)
+              : candidate_item.lower;
+    const bst_float next_upper =
+        found ? std::min(current_upper, candidate_item.upper)
+              : candidate_item.upper;
+    working_domain->lower[index] = enabled ? next_lower : current_lower;
+    working_domain->upper[index] = enabled ? next_upper : current_upper;
+    working_domain->active[index] =
+        enabled ? static_cast<uint8_t>(1) : working_domain->active[index];
+  }
+}
+
+void TouchIndexedDomain(const IndexedNodeDomain& candidate) {
+  if (candidate.empty()) {
+    return;
+  }
+
+  constexpr std::uintptr_t kPageSize = 4096;
+  const auto* data =
+      reinterpret_cast<const unsigned char*>(candidate.data());
+  const std::uintptr_t begin = reinterpret_cast<std::uintptr_t>(data);
+  const std::uintptr_t end =
+      begin + candidate.size() * sizeof(IndexedFeatureDomain);
+  const std::uintptr_t first_page = begin & ~(kPageSize - 1);
+
+  uint8_t sink = 0;
+  for (std::uintptr_t page = first_page; page < end; page += kPageSize) {
+    const std::uintptr_t address = std::max(page, begin);
+    const volatile unsigned char* byte =
+        reinterpret_cast<const volatile unsigned char*>(address);
+    sink ^= *byte;
+  }
+  volatile uint8_t keep_alive = sink;
+  static_cast<void>(keep_alive);
+}
+
+template <typename T>
+void TouchVectorPages(const std::vector<T>& values) {
+  if (values.empty()) {
+    return;
+  }
+
+  constexpr std::uintptr_t kPageSize = 4096;
+  const auto* data = reinterpret_cast<const unsigned char*>(values.data());
+  const std::uintptr_t begin = reinterpret_cast<std::uintptr_t>(data);
+  const std::uintptr_t end = begin + values.size() * sizeof(T);
+  const std::uintptr_t first_page = begin & ~(kPageSize - 1);
+
+  uint8_t sink = 0;
+  for (std::uintptr_t page = first_page; page < end; page += kPageSize) {
+    const std::uintptr_t address = std::max(page, begin);
+    const volatile unsigned char* byte =
+        reinterpret_cast<const volatile unsigned char*>(address);
+    sink ^= *byte;
+  }
+  volatile uint8_t keep_alive = sink;
+  static_cast<void>(keep_alive);
+}
+
+void TouchDenseWorkingDomainPages(const DenseWorkingDomain& working_domain) {
+  TouchVectorPages(working_domain.active);
+  TouchVectorPages(working_domain.lower);
+  TouchVectorPages(working_domain.upper);
+}
+
+void ApplySelectedDenseWorkingDomainIntersect(
+    DenseWorkingDomain* working_domain, const IndexedNodeDomain& candidate,
+    bool enabled) {
+  TouchDenseWorkingDomainPages(*working_domain);
+  if (!enabled) {
+    TouchIndexedDomain(candidate);
+    return;
+  }
+  ApplyDenseWorkingDomainIntersect(working_domain, candidate, true);
+}
+
+NoisePosition SelectFirstPositiveNoiseOblivious(
+    const std::vector<std::vector<size_t>>& noise) {
+  NoisePosition selected;
+  for (size_t tree_pos = 0; tree_pos < noise.size(); ++tree_pos) {
+    for (size_t representative_pos = 0;
+         representative_pos < noise[tree_pos].size(); ++representative_pos) {
+      const bool should_select =
+          !selected.found && noise[tree_pos][representative_pos] > 0;
+      selected.tree_pos = should_select ? tree_pos : selected.tree_pos;
+      selected.representative_pos =
+          should_select ? representative_pos : selected.representative_pos;
+      selected.found = selected.found || should_select;
+    }
+  }
+  return selected;
+}
+
+void DecrementSelectedNoiseOblivious(
+    std::vector<std::vector<size_t>>* noise, const NoisePosition& selected) {
+  for (size_t tree_pos = 0; tree_pos < noise->size(); ++tree_pos) {
+    for (size_t representative_pos = 0;
+         representative_pos < (*noise)[tree_pos].size();
+         ++representative_pos) {
+      const bool should_decrement =
+          selected.found && tree_pos == selected.tree_pos &&
+          representative_pos == selected.representative_pos;
+      const size_t value = (*noise)[tree_pos][representative_pos];
+      (*noise)[tree_pos][representative_pos] =
+          should_decrement ? value - 1 : value;
+    }
+  }
+}
+
+void DecrementSelectedNoiseInTreeOblivious(
+    std::vector<std::vector<size_t>>* noise, size_t tree_pos,
+    const NoisePosition& selected) {
+  for (size_t representative_pos = 0;
+       representative_pos < (*noise)[tree_pos].size(); ++representative_pos) {
+    const bool should_decrement =
+        selected.found && representative_pos == selected.representative_pos;
+    const size_t value = (*noise)[tree_pos][representative_pos];
+    (*noise)[tree_pos][representative_pos] =
+        should_decrement ? value - 1 : value;
+  }
+}
+
+void ApplySelectedDomainInTreeOblivious(
+    DenseWorkingDomain* working_domain,
+    const IndexedDomains& domains, size_t tree_pos,
+    const NoisePosition& selected) {
+  for (size_t representative_pos = 0;
+       representative_pos < domains[tree_pos].size(); ++representative_pos) {
+    const bool enabled =
+        selected.found && representative_pos == selected.representative_pos;
+    ApplySelectedDenseWorkingDomainIntersect(
+        working_domain, domains[tree_pos][representative_pos], enabled);
+  }
+}
+
+void InitializeWorkingDomainFromSelected(
+    DenseWorkingDomain* working_domain,
+    const IndexedDomains& domains,
+    const NoisePosition& selected) {
+  ResetDenseWorkingDomain(working_domain);
+  for (size_t tree_pos = 0; tree_pos < domains.size(); ++tree_pos) {
+    for (size_t representative_pos = 0;
+         representative_pos < domains[tree_pos].size();
+         ++representative_pos) {
+      const bool enabled =
+          selected.found && tree_pos == selected.tree_pos &&
+          representative_pos == selected.representative_pos;
+      ApplySelectedDenseWorkingDomainIntersect(
+          working_domain, domains[tree_pos][representative_pos], enabled);
+    }
+  }
+}
+
+NoisePosition SelectCompatibleRepresentativeOblivious(
+    const std::vector<std::vector<size_t>>& noise,
+    const IndexedDomains& domains,
+    const DenseWorkingDomain& working_domain, size_t tree_pos,
+    const NoisePosition& seed) {
+  NoisePosition selected;
+  for (size_t representative_pos = 0;
+       representative_pos < noise[tree_pos].size(); ++representative_pos) {
+    const auto& candidate_domain = domains[tree_pos][representative_pos];
+    const bool can_intersect =
+        DenseWorkingDomainCanIntersect(working_domain, candidate_domain);
+    const bool is_seed_tree = seed.found && tree_pos == seed.tree_pos;
+    const bool should_select =
+        !selected.found && !is_seed_tree &&
+        noise[tree_pos][representative_pos] > 0 && can_intersect;
+    selected.tree_pos = should_select ? tree_pos : selected.tree_pos;
+    selected.representative_pos =
+        should_select ? representative_pos : selected.representative_pos;
+    selected.found = selected.found || should_select;
+  }
+  return selected;
+}
+
+void BuildDummyEntries(const DenseWorkingDomain& domain,
                        std::vector<Entry>* entries) {
+  TouchDenseWorkingDomainPages(domain);
   entries->clear();
-  entries->reserve(domain.size());
-  for (const auto& item : domain) {
-    const bool has_lower = !IsDefaultLower(item.lower);
-    const bool has_upper = !IsDefaultUpper(item.upper);
+  entries->reserve(domain.active.size());
+  for (size_t feature = 0; feature < domain.active.size(); ++feature) {
+    if (domain.active[feature] == 0) {
+      continue;
+    }
+
+    const bool has_lower = !IsDefaultLower(domain.lower[feature]);
+    const bool has_upper = !IsDefaultUpper(domain.upper[feature]);
     if (!has_lower && !has_upper) {
       continue;
     }
 
     bst_float value;
     if (has_lower && has_upper) {
-      value = item.lower + (item.upper - item.lower) / 2;
+      value = domain.lower[feature] +
+              (domain.upper[feature] - domain.lower[feature]) / 2;
     } else if (has_lower) {
-      value = std::nextafter(item.lower,
+      value = std::nextafter(domain.lower[feature],
                              std::numeric_limits<bst_float>::max());
     } else {
-      value = std::nextafter(item.upper,
+      value = std::nextafter(domain.upper[feature],
                              std::numeric_limits<bst_float>::lowest());
     }
-    entries->push_back(Entry{item.feature, value});
+    entries->push_back(Entry{domain.features[feature], value});
+  }
+}
+
+void PadDummyEntries(size_t fixed_row_size, std::vector<Entry>* entries) {
+  CHECK_LE(entries->size(), fixed_row_size);
+  const Entry padding_entry{std::numeric_limits<bst_feature_t>::max(), 0.0f};
+  while (entries->size() < fixed_row_size) {
+    entries->push_back(padding_entry);
   }
 }
 
 DummySamples BuildDummySamplesFromNoiseAndDomains(
     std::vector<std::vector<size_t>>* noise,
-    const std::vector<std::vector<NodeDomain>>& domains) {
+    const std::vector<std::vector<NodeDomain>>& domains,
+    size_t fixed_row_size) {
   CHECK(noise != nullptr);
   CHECK_EQ(noise->size(), domains.size());
   for (size_t tree_pos = 0; tree_pos < noise->size(); ++tree_pos) {
@@ -458,50 +697,36 @@ DummySamples BuildDummySamplesFromNoiseAndDomains(
   }
 
   DummySamples dummy_samples;
+  dummy_samples.max_entries = fixed_row_size;
   size_t remaining_noise = CountRemainingNoise(*noise);
   std::vector<Entry> entries;
-  NodeDomain dummy_domain;
-  dummy_domain.reserve(32);
-  NoisePosition seed_cursor;
-  std::vector<size_t> first_positive_rep(noise->size(), 0);
+  DenseWorkingDomain dummy_domain;
+  InitDenseWorkingDomain(CollectWorkingDomainFeatures(domains),
+                         &dummy_domain);
+  const IndexedDomains indexed_domains =
+      BuildIndexedDomains(domains, dummy_domain);
   while (remaining_noise > 0) {
-    const NoisePosition seed = FindSeed(*noise, &seed_cursor);
-    dummy_domain = domains[seed.tree_pos][seed.representative_pos];
-    CHECK_GT((*noise)[seed.tree_pos][seed.representative_pos], 0U);
-    (*noise)[seed.tree_pos][seed.representative_pos]--;
+    const NoisePosition seed = SelectFirstPositiveNoiseOblivious(*noise);
+    CHECK(seed.found);
+    InitializeWorkingDomainFromSelected(&dummy_domain, indexed_domains, seed);
+    DecrementSelectedNoiseOblivious(noise, seed);
     remaining_noise--;
 
     for (size_t tree_pos = 0; tree_pos < noise->size(); ++tree_pos) {
-      if (tree_pos == seed.tree_pos) {
-        continue;
-      }
-
-      while (first_positive_rep[tree_pos] < (*noise)[tree_pos].size() &&
-             (*noise)[tree_pos][first_positive_rep[tree_pos]] == 0) {
-        first_positive_rep[tree_pos]++;
-      }
-
-      for (size_t representative_pos = first_positive_rep[tree_pos];
-           representative_pos < (*noise)[tree_pos].size();
-           ++representative_pos) {
-        if ((*noise)[tree_pos][representative_pos] == 0) {
-          continue;
-        }
-        const auto& candidate_domain = domains[tree_pos][representative_pos];
-        if (CanIntersectDomain(dummy_domain, candidate_domain)) {
-          ApplyIntersectDomain(&dummy_domain, candidate_domain);
-          (*noise)[tree_pos][representative_pos]--;
-          remaining_noise--;
-          break;
-        }
-      }
+      const NoisePosition selected =
+          SelectCompatibleRepresentativeOblivious(*noise, indexed_domains,
+                                                  dummy_domain, tree_pos,
+                                                  seed);
+      ApplySelectedDomainInTreeOblivious(&dummy_domain, indexed_domains,
+                                         tree_pos, selected);
+      DecrementSelectedNoiseInTreeOblivious(noise, tree_pos, selected);
+      remaining_noise -= selected.found ? 1 : 0;
     }
 
     BuildDummyEntries(dummy_domain, &entries);
+    PadDummyEntries(fixed_row_size, &entries);
     SparsePage::Inst inst{entries.data(), entries.size()};
     dummy_samples.page.Push(inst);
-    dummy_samples.max_entries =
-        std::max(dummy_samples.max_entries, entries.size());
   }
   return dummy_samples;
 }
@@ -553,8 +778,12 @@ void PredictDMatrix(DMatrix* p_fmat, std::vector<bst_float>* out_preds,
                                                 representatives);
     auto noise = SampleRepresentativeNoise(tree_begin, tree_end,
                                            representatives, epsilon, delta, 1);
+    const size_t fixed_dummy_row_size =
+        std::max(batch.MaxNumberOfEntries(),
+                 CollectWorkingDomainFeatures(domains).size());
     DummySamples dummy_samples =
-        BuildDummySamplesFromNoiseAndDomains(&noise, domains);
+        BuildDummySamplesFromNoiseAndDomains(&noise, domains,
+                                             fixed_dummy_row_size);
     ::DoxieInference doxie_inference(epsilon, delta, 1,
                                      metrics.shuffle_method);
     doxie_inference.Preprocess(batch, dummy_samples.page,
