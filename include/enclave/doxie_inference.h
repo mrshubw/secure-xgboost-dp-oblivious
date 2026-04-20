@@ -157,6 +157,20 @@ inline PrivacyBudget SplitPrivacyBudgetByAdvancedComposition(
   return PrivacyBudget{lower, delta_per_tree};
 }
 
+inline PrivacyBudget SplitPrivacyBudgetByBasicComposition(
+    double epsilon, double delta, size_t trees_num) {
+  CHECK_GT(epsilon, 0.0);
+  CHECK_GT(delta, 0.0);
+  CHECK_LT(delta, 1.0);
+
+  if (trees_num <= 1) {
+    return PrivacyBudget{epsilon, delta};
+  }
+
+  const double trees = static_cast<double>(trees_num);
+  return PrivacyBudget{epsilon / trees, delta / trees};
+}
+
 #define PSRR_OSHUFFLE
 
 class DoxieInference
@@ -168,6 +182,7 @@ private:
   double sigma;
   double mean;
   std::string shuffle_method_;
+  bool use_advanced_composition_;
 public:
   xgboost::SparsePage shuffle_page;
   std::vector<int> shuffle_index;
@@ -178,11 +193,13 @@ public:
 
   DoxieInference(/* args */):DoxieInference(1, 0.00001, 1){};
   DoxieInference(double epsilon, double delta, double sensitivity,
-             std::string shuffle_method = "BitonicShuffler")
+             std::string shuffle_method = "BitonicShuffler",
+             bool use_advanced_composition = true)
       : epsilon(epsilon),
         delta(delta),
         sensitivity(sensitivity),
-        shuffle_method_(shuffle_method) {
+        shuffle_method_(shuffle_method),
+        use_advanced_composition_(use_advanced_composition) {
     // sigma = calculateSigma(epsilon, delta, sensitivity);
     // mean = calculateMean(sigma, delta);
     // std::cout<<"sigma: "<<sigma<<" mean: "<<mean<<std::endl;
@@ -265,11 +282,14 @@ public:
                   int num_groups=1){
     CHECK_GT(trees_num, 0);
     PrivacyBudget per_tree_budget =
-        SplitPrivacyBudgetByAdvancedComposition(
-            epsilon, delta, static_cast<size_t>(trees_num));
-    sigma = calculateSigma(epsilon, delta/trees_num,
+        use_advanced_composition_
+            ? SplitPrivacyBudgetByAdvancedComposition(
+                  epsilon, delta, static_cast<size_t>(trees_num))
+            : SplitPrivacyBudgetByBasicComposition(
+                  epsilon, delta, static_cast<size_t>(trees_num));
+    sigma = calculateSigma(per_tree_budget.epsilon, per_tree_budget.delta,
                            sensitivity);
-    mean = calculateMean(sigma, delta/trees_num);
+    mean = calculateMean(sigma, per_tree_budget.delta);
     // size_t samples_num = (tree_nodes_num/2)/200;
     // std::cout<<"trees_num: "<<trees_num<<" samples_num: "<<samples_num<<std::endl;
     

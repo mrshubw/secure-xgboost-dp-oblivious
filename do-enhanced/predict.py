@@ -19,7 +19,9 @@ RESULT_FIELDS = [
     "shuffleMethod",
     "doxieMemoryAlignment",
     "doxieBlockedKernel",
+    "doxieAdvancedComposition",
     "PredictDMatrixDO",
+    "PredictOnline",
     "PredictNO",
     "AddDummy",
     "shuffle",
@@ -55,6 +57,7 @@ def predict_batches(dataset, max_depth, num_rounds, data_size_list,
                     shuffle_method="BitonicShuffler",
                     doxie_memory_alignment=True,
                     doxie_blocked_kernel=True,
+                    doxie_advanced_composition=True,
                     results_file=RESULTS_FILE):
     initialize_xgboost()
     data_dir = os.path.join(DATA_DIR, dataset)
@@ -66,6 +69,8 @@ def predict_batches(dataset, max_depth, num_rounds, data_size_list,
         "doxie_shuffle_method": shuffle_method,
         "doxie_memory_alignment": "true" if doxie_memory_alignment else "false",
         "doxie_blocked_kernel": "true" if doxie_blocked_kernel else "false",
+        "doxie_advanced_composition":
+            "true" if doxie_advanced_composition else "false",
     })
 
     for data_size in data_size_list:
@@ -91,6 +96,7 @@ def predict_once(dataset, max_depth, num_rounds, data_size,
                  shuffle_method="BitonicShuffler",
                  doxie_memory_alignment=True,
                  doxie_blocked_kernel=True,
+                 doxie_advanced_composition=True,
                  results_file=RESULTS_FILE):
     predict_batches(
         dataset=dataset,
@@ -102,12 +108,14 @@ def predict_once(dataset, max_depth, num_rounds, data_size,
         shuffle_method=shuffle_method,
         doxie_memory_alignment=doxie_memory_alignment,
         doxie_blocked_kernel=doxie_blocked_kernel,
+        doxie_advanced_composition=doxie_advanced_composition,
         results_file=results_file,
     )
 
 def predict_all(dataset, max_depth_list, num_rounds_list, data_size_list,
                 epsilon=1.0, delta=0.00001,
                 shuffle_method="BitonicShuffler",
+                doxie_advanced_composition=True,
                 results_file=RESULTS_FILE):
     for num_rounds in num_rounds_list:
         for max_depth in max_depth_list:
@@ -119,6 +127,7 @@ def predict_all(dataset, max_depth_list, num_rounds_list, data_size_list,
                 epsilon=epsilon,
                 delta=delta,
                 shuffle_method=shuffle_method,
+                doxie_advanced_composition=doxie_advanced_composition,
                 results_file=results_file,
             )
 
@@ -149,17 +158,21 @@ def main():
     parser.add_argument('--data-size', type=int, default=10000)
     parser.add_argument('--data-sizes', type=str, default=None,
                         help="comma separated batch sizes, e.g. 1000,10000,100000")
-    parser.add_argument('--epsilon', type=float, default=1.0)
+    parser.add_argument('--epsilon', type=float, default=1)
     parser.add_argument('--delta', type=float, default=0.00001)
     parser.add_argument('--shuffle-method', type=str, default="BitonicShuffler")
     parser.add_argument('--doxie-memory-alignment',
                         choices=["true", "false"],
-                        default="false",
+                        default="true",
                         help="enable DOXIE page-aligned tree memory")
     parser.add_argument('--doxie-blocked-kernel',
                         choices=["true", "false"],
                         default="false",
                         help="use the block-major DOXIE prediction kernel")
+    parser.add_argument('--doxie-advanced-composition',
+                        choices=["true", "false"],
+                        default="true",
+                        help="use advanced composition for per-tree privacy budget")
     parser.add_argument('--results-file', type=str, default=RESULTS_FILE)
 
     args = parser.parse_args()
@@ -179,6 +192,7 @@ def main():
         shuffle_method=args.shuffle_method,
         doxie_memory_alignment=args.doxie_memory_alignment == "true",
         doxie_blocked_kernel=args.doxie_blocked_kernel == "true",
+        doxie_advanced_composition=args.doxie_advanced_composition == "true",
         results_file=args.results_file,
     )
 

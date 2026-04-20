@@ -320,6 +320,8 @@ class CPUPredictor : public Predictor {
         prediction_metrics_.doxie_memory_alignment = kv.second == "true";
       } else if (kv.first == "doxie_blocked_kernel") {
         prediction_metrics_.doxie_blocked_kernel = kv.second == "true";
+      } else if (kv.first == "doxie_advanced_composition") {
+        prediction_metrics_.doxie_advanced_composition = kv.second == "true";
       }
     }
   }

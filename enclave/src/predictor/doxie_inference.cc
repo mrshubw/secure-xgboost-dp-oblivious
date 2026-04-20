@@ -327,7 +327,7 @@ std::vector<std::vector<NodeDomain>> CollectRepresentativeDomains(
 std::vector<std::vector<size_t>> SampleRepresentativeNoise(
     int32_t tree_begin, int32_t tree_end,
     const std::vector<int>& representatives, double epsilon, double delta,
-    double sensitivity) {
+    double sensitivity, bool use_advanced_composition) {
   CHECK_GE(tree_begin, 0);
   CHECK_GE(tree_end, tree_begin);
   CHECK_GT(epsilon, 0.0);
@@ -340,7 +340,9 @@ std::vector<std::vector<size_t>> SampleRepresentativeNoise(
   }
 
   const PrivacyBudget per_tree_budget =
-      SplitPrivacyBudgetByAdvancedComposition(epsilon, delta, num_trees);
+      use_advanced_composition
+          ? SplitPrivacyBudgetByAdvancedComposition(epsilon, delta, num_trees)
+          : SplitPrivacyBudgetByBasicComposition(epsilon, delta, num_trees);
   const double sigma =
       calculateSigma(per_tree_budget.epsilon, per_tree_budget.delta,
                      sensitivity);
@@ -792,6 +794,7 @@ void PredictDMatrix(DMatrix* p_fmat, std::vector<bst_float>* out_preds,
                        metrics.doxie_memory_alignment);
 
   common::Timer total_timer;
+  common::Timer predict_online_timer;
   std::lock_guard<std::mutex> guard(*context->lock);
   const int threads = omp_get_max_threads();
   InitThreadTemp(threads, model.learner_model_param->num_feature,
@@ -807,20 +810,25 @@ void PredictDMatrix(DMatrix* p_fmat, std::vector<bst_float>* out_preds,
     double delta = metrics.delta;
     int32_t const num_group = model.learner_model_param->num_output_group;
 
+    predict_online_timer.Stop();
     auto representatives =
         CollectLeafPageRepresentatives(model, tree_begin, tree_end);
     auto domains = CollectRepresentativeDomains(model, tree_begin, tree_end,
                                                 representatives);
     auto noise = SampleRepresentativeNoise(tree_begin, tree_end,
-                                           representatives, epsilon, delta, 1);
+                                           representatives, epsilon, delta, 1,
+                                           metrics.doxie_advanced_composition);
     const size_t fixed_dummy_row_size =
         std::max(batch.MaxNumberOfEntries(),
                  CollectWorkingDomainFeatures(domains).size());
     DummySamples dummy_samples =
         BuildDummySamplesFromNoiseAndDomains(&noise, domains,
                                              fixed_dummy_row_size);
-    ::DoxieInference doxie_inference(epsilon, delta, 1,
-                                     metrics.shuffle_method);
+    predict_online_timer.Start();
+
+    ::DoxieInference doxie_inference(
+        epsilon, delta, 1, metrics.shuffle_method,
+        metrics.doxie_advanced_composition);
     doxie_inference.Preprocess(batch, dummy_samples.page,
                                dummy_samples.max_entries, &metrics,
                                num_group);
@@ -841,9 +849,11 @@ void PredictDMatrix(DMatrix* p_fmat, std::vector<bst_float>* out_preds,
     doxie_inference.PostProcess(out_preds, &metrics);
   }
 
+  predict_online_timer.Stop();
   total_timer.Stop();
   metrics.has_do_metrics = true;
   metrics.predict_dmatrix_do_seconds = total_timer.ElapsedSeconds();
+  metrics.predict_online_seconds = predict_online_timer.ElapsedSeconds();
 }
 
 }  // namespace doxie
