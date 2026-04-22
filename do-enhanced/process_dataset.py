@@ -8,6 +8,8 @@ from utils import *
 
 random_state = 42
 CURRENT_DIR = os.path.dirname(__file__)
+DEFAULT_DATASET = 'allstate'
+DEFAULT_SIZE_LIST = list(range(1000, 30000, 1000))
 
 # Define column names for Higgs dataset
 higgs_column_names = ["label", "lepton_pT", "lepton_eta", "lepton_phi", "missing_energy_magnitude", "missing_energy_phi",
@@ -18,7 +20,7 @@ higgs_column_names = ["label", "lepton_pT", "lepton_eta", "lepton_phi", "missing
                       "m_jj", "m_jjj", "m_lv", "m_jlv", "m_bb", "m_wbb", "m_wwbb"]
 
 # Function to preprocess Allstate dataset
-def preprocess_allstate(data, size):
+def preprocess_allstate(data, size, encrypt=True):
     # Sample the data
     data = data.sample(n=size, random_state=42)
 
@@ -37,13 +39,20 @@ def preprocess_allstate(data, size):
     
     # Convert to LibSVM format
     libsvm_train = convert_to_libsvm(X_train, y_train)
-    
+
+    data_dir = os.path.join(CURRENT_DIR, 'data/allstate')
+    os.makedirs(data_dir, exist_ok=True)
+    data_path = os.path.join(data_dir, f"data{size}.txt")
+
     # Save to file
-    with open(f'data/allstate/data{size}.txt', 'w') as f:
+    with open(data_path, 'w') as f:
         f.write(libsvm_train)
 
+    if encrypt:
+        xgb.encrypt_file(data_path, os.path.join(data_dir, f"data{size}.enc"), KEY_FILE)
+
 # Function to preprocess Covtype dataset
-def preprocess_covtype(data, size):
+def preprocess_covtype(data, size, encrypt=True):
     # Convert labels to be in the range [0, num_class)
     data.iloc[:, -1] = data.iloc[:, -1] - 1
     
@@ -52,10 +61,17 @@ def preprocess_covtype(data, size):
     
     # Convert to LibSVM format
     libsvm_data = convert_to_libsvm(data_sampled.iloc[:, :-1], data_sampled.iloc[:, -1])
-    
+
+    data_dir = os.path.join(CURRENT_DIR, 'data/covtype')
+    os.makedirs(data_dir, exist_ok=True)
+    data_path = os.path.join(data_dir, f"data{size}.txt")
+
     # Save to file
-    with open(f'data/covtype/data{size}.txt', 'w') as f:
+    with open(data_path, 'w') as f:
         f.write(libsvm_data)
+
+    if encrypt:
+        xgb.encrypt_file(data_path, os.path.join(data_dir, f"data{size}.enc"), KEY_FILE)
 
 # Function to preprocess Higgs dataset
 def preprocess_higgs(data, size, filename=None, encrypt=True, scaler_type='minmax'):
@@ -85,6 +101,7 @@ def preprocess_higgs(data, size, filename=None, encrypt=True, scaler_type='minma
     if filename is None:
         filename = f"data{size}"
     data_dir = os.path.join(CURRENT_DIR, 'data/higgs')
+    os.makedirs(data_dir, exist_ok=True)
     data_path = os.path.join(data_dir, filename + ".txt")
     with open(data_path, "w") as train_file:
         train_file.write("\n".join(sparse_data))
@@ -106,40 +123,58 @@ def convert_to_libsvm(X, y=None):
     return libsvm_str
 
 # Main function to handle dataset processing
-def process_dataset(dataset, size, iterations=None):
+def process_dataset(dataset, size, iterations=None, encrypt=True):
     if dataset == 'allstate':
         data = pd.read_csv('data/allstate/train_set.csv', dtype={19: str}, low_memory=False)
-        preprocess_allstate(data, size)
+        preprocess_allstate(data, size, encrypt=encrypt)
     elif dataset == 'covtype':
         data = pd.read_csv('data/covtype/covtype.data', header=None)
-        preprocess_covtype(data, size)
+        preprocess_covtype(data, size, encrypt=encrypt)
     elif dataset == 'higgs':
         data_path = os.path.join(CURRENT_DIR, 'data/higgs/HIGGS.csv')
         data = pd.read_csv(data_path, header=None, names=higgs_column_names)
         # preprocess_higgs(data, size)
         if iterations is not None:
             for i in range(iterations):
-                preprocess_higgs(data, size, filename=f"data{size}_iter{i}")
+                preprocess_higgs(data, size, filename=f"data{size}_iter{i}", encrypt=encrypt)
         else:
-            preprocess_higgs(data, size)
+            preprocess_higgs(data, size, encrypt=encrypt)
     else:
         raise ValueError("Unsupported dataset. Choose 'allstate', 'covtype', or 'higgs'.")
-    
-    
-    # data_path = os.path.join('data/' + dataset, f"data{size}.txt")
-    # # Encrypt the file
-    # xgb.encrypt_file(data_path, os.path.join('data/' + dataset, f"data{size}.enc"), KEY_FILE)
+
+
+def parse_sizes(size=None, sizes=None):
+    if sizes:
+        return [int(item.strip()) for item in sizes.split(',') if item.strip()]
+    if size is not None:
+        return [size]
+    raise ValueError("Either --size or --sizes must be provided.")
 
 def test():
     print("Testing dataset processing...")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Process datasets.')
-    parser.add_argument('--dataset', type=str, required=True, choices=['allstate', 'covtype', 'higgs'],
+    parser.add_argument('--dataset', type=str, default=DEFAULT_DATASET, choices=['allstate', 'covtype', 'higgs'],
                         help='Dataset to process: allstate, covtype, or higgs')
-    parser.add_argument('--size', type=int, required=True, help='Size of the dataset to process')
-    parser.add_argument('--iterations', type=int, default=None, help='Number of iterations for allstate dataset')
+    parser.add_argument('--size', type=int, default=None, help='One dataset size to process')
+    parser.add_argument('--sizes', type=str, default=None,
+                        help='Comma-separated dataset sizes, e.g. 1000,2000,3000')
+    parser.add_argument('--iterations', type=int, default=None, help='Number of iterations for higgs dataset')
+    parser.add_argument('--no-encrypt', action='store_true',
+                        help='Only generate .txt files and skip .enc encryption')
     args = parser.parse_args()
-    
-    process_dataset(args.dataset, args.size, iterations=args.iterations)
-    print(f"Dataset {args.dataset} with size {args.size} has been processed.")
+
+    if args.size is None and args.sizes is None and args.dataset == DEFAULT_DATASET:
+        size_list = DEFAULT_SIZE_LIST
+    else:
+        size_list = parse_sizes(size=args.size, sizes=args.sizes)
+
+    for size in size_list:
+        process_dataset(
+            args.dataset,
+            size,
+            iterations=args.iterations,
+            encrypt=not args.no_encrypt,
+        )
+        print(f"Dataset {args.dataset} with size {size} has been processed.")

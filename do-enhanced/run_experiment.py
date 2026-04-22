@@ -183,7 +183,7 @@ def experiment_throughput():
     run_all_build_modes(
         script='predict.py',
         datasets=['higgs'],
-        t_values=[20],
+        t_values=[40],
         depth_list=[7],
         data_size_list=THROUGHPUT_DATA_SIZES,
     )
@@ -203,6 +203,16 @@ def experiment_fig5():
         datasets=CANDIDATE_DATASETS,
         t_values=CANDIDATE_T_VALUES,
         depth_list=[3,5,7,9],
+        data_size_list=CANDIDATE_DATA_SIZES,
+        epsilon_list=CANDIDATE_EPSILONS,
+        shuffle_method_list=[DEFAULT_SHUFFLER]
+    )
+
+def experiment_tab1():
+    run_commands_DO(
+        datasets=['higgs'],
+        t_values=[20],
+        depth_list=[6,8],
         data_size_list=CANDIDATE_DATA_SIZES,
         epsilon_list=CANDIDATE_EPSILONS,
         shuffle_method_list=[DEFAULT_SHUFFLER]
@@ -250,11 +260,12 @@ def experiment_shufflers():
 
 if __name__ == '__main__':
     # experiment_main()
-    # experiment_throughput()
-    iterations = 1
+    iterations = 10
     for _ in range(iterations):
+        # experiment_throughput()
         experiment_fig4()
-        experiment_fig5()
+        # experiment_fig5()
+        #experiment_tab1()
     # experiment_higgs_500_trees()
     # experiment_NLP()
     # experiment_random_forest()
